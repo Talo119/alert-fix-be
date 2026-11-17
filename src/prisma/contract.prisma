@@ -1,21 +1,79 @@
 // use prisma-8
 
 model User {
-  id        Int                @id @default(autoincrement())
+  id        String             @id @onCreate(uuid())
   email     String             @unique
   username  String?
   name      String?
-  posts     Post[]
+  phoneNumber String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  companyId String?
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
 
-model Post {
-  id        Int                @id @default(autoincrement())
-  title     String
-  content   String?
-  author    User               @relation(fields: [authorId], references: [id])
-  authorId  Int
+model Company {
+  id        String             @id @onCreate(uuid())
+  name      String             @unique 
+  users     User[]
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model Client {
+  id        String             @id @onCreate(uuid())
+  name      String
+  email     String             @unique
+  phoneNumber String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  companyId String?
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model Service {
+  id        String             @id @onCreate(uuid())
+  name      String
+  description String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  companyId String?
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model OrderHeader {
+  id        String             @id @onCreate(uuid())
+  client    Client?            @relation(fields: [clientId], references: [id])
+  clientId  String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  companyId String?
+  serviceDate DateTime
+  status    String
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model OrderEntry {
+  id        String             @id @onCreate(uuid())
+  order     OrderHeader?       @relation(fields: [orderId], references: [id])
+  orderId   String?
+  service   Service?           @relation(fields: [serviceId], references: [id])
+  serviceId String?
+  quantity  Int
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model Reminder {
+  id        String             @id @onCreate(uuid())
+  order     OrderHeader?       @relation(fields: [orderId], references: [id])
+  orderId   String?
+  message   String
+  remindAt  DateTime
+  status    String
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
