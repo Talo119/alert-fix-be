@@ -19,16 +19,16 @@ export class ReminderController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.reminderService.findOne(+id);
+    return this.reminderService.findOne(id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateReminderDto: UpdateReminderDto) {
-    return this.reminderService.update(+id, updateReminderDto);
+    return this.reminderService.update(id, updateReminderDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.reminderService.remove(+id);
+    return this.reminderService.remove(id);
   }
 }
