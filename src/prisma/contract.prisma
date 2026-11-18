@@ -76,6 +76,7 @@ model Reminder {
   status    String
   sentAt    DateTime?
   lastError String?
+  externalMessageId String?
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }

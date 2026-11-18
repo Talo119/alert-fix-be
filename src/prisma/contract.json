@@ -479,6 +479,13 @@
                   }
                 }
               },
+              "externalMessageId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -567,6 +574,9 @@
               "fields": {
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "externalMessageId": {
+                  "column": "externalMessageId"
                 },
                 "id": {
                   "column": "id"
@@ -1220,6 +1230,11 @@
                     "precision": 3
                   }
                 },
+                "externalMessageId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1501,7 +1516,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "5cbcc9dbb29b22701d3e9f4092c7be2f1d41f5bb4574b9fe989066db91801fd8"
+    "storageHash": "62cc4fdc86987ec538abdbeaa771c34938108408d9cadbf2a2de4770122d731f"
   },
   "execution": {
     "executionHash": "0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884",

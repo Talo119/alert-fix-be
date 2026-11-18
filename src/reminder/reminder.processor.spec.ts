@@ -33,6 +33,7 @@ const reminderWithClient = (
   status,
   sentAt: null,
   lastError: null,
+  externalMessageId: null,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   updatedAt: new Date('2026-11-01T00:00:00Z'),
   order: null,
@@ -64,9 +65,10 @@ describe('ReminderProcessor', () => {
   });
 
   describe('process', () => {
-    it('envía y marca SENT con sentAt', async () => {
+    it('envía y marca SENT con sentAt y externalMessageId', async () => {
       const r = reminderWithClient();
       reminders.first.mockResolvedValue(r);
+      send.mockResolvedValue({ externalMessageId: 'wamid.ABC' });
 
       await processor.process(job());
 
@@ -77,7 +79,18 @@ describe('ReminderProcessor', () => {
         status: ReminderStatus.SENT,
         sentAt: expect.any(Date) as Date,
         lastError: null,
+        externalMessageId: 'wamid.ABC',
       });
+    });
+
+    it('sin externalMessageId guarda null', async () => {
+      reminders.first.mockResolvedValue(reminderWithClient());
+
+      await processor.process(job());
+
+      expect(reminders.update).toHaveBeenCalledWith(
+        expect.objectContaining({ externalMessageId: null }),
+      );
     });
 
     it('carga la orden con su cliente', async () => {

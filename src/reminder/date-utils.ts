@@ -69,3 +69,26 @@ export function startOfNextDay(now: Date, timeZone: string): Date {
   const guess = naive - offsetAt(new Date(naive), timeZone);
   return new Date(naive - offsetAt(new Date(guess), timeZone));
 }
+
+const serviceDateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * Fecha y hora del servicio en español para el mensaje al cliente,
+ * p. ej. `miércoles, 25 de noviembre, 9:00 a. m.`.
+ */
+export function formatServiceDate(date: Date, timeZone: string): string {
+  let fmt = serviceDateFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('es', {
+      timeZone,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    serviceDateFormatters.set(timeZone, fmt);
+  }
+  return fmt.format(date);
+}

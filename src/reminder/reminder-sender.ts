@@ -1,7 +1,7 @@
 import type { ReminderWithClient } from './reminder.types.js';
 
 export interface ReminderSendResult {
-  /** Id del mensaje en el proveedor (p. ej. `wamid` de WhatsApp, spec 03). */
+  /** Id del mensaje en el proveedor (p. ej. `wamid` de WhatsApp). */
   externalMessageId?: string;
 }
 

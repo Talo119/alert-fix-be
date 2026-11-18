@@ -18,6 +18,10 @@ import type { Reminder } from './reminder.types.js';
  * Orden: primero encolar, después marcar. Si el proceso cae entre ambos pasos,
  * el reminder sigue PENDING y el siguiente run lo re-encola con el mismo
  * `jobId`, que BullMQ descarta si el job aún existe.
+ *
+ * Excepción: un job `failed` con ese id se conserva para diagnóstico
+ * (`removeOnFail`) y también bloquearía el `add`. Si el reminder vuelve a
+ * PENDING (reintento manual), ese job viejo se elimina antes de encolar.
  */
 @Injectable()
 export class QueueReminderDispatcher extends ReminderDispatcher {
@@ -30,6 +34,7 @@ export class QueueReminderDispatcher extends ReminderDispatcher {
 
   async dispatch(reminders: Reminder[]): Promise<void> {
     for (const r of reminders) {
+      await this.removeFailedJob(r.id);
       await this.queue.add(
         SEND_REMINDER_JOB,
         { reminderId: r.id },
@@ -40,5 +45,10 @@ export class QueueReminderDispatcher extends ReminderDispatcher {
         status: ReminderStatus.PENDING,
       }).update({ status: ReminderStatus.QUEUED });
     }
+  }
+
+  private async removeFailedJob(jobId: string): Promise<void> {
+    const job = await this.queue.getJob(jobId);
+    if (job && (await job.isFailed())) await job.remove();
   }
 }

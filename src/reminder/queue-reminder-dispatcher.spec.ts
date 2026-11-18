@@ -27,19 +27,25 @@ const reminder = (id: string): Reminder => ({
   status: ReminderStatus.PENDING,
   sentAt: null,
   lastError: null,
+  externalMessageId: null,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   updatedAt: new Date('2026-11-01T00:00:00Z'),
 });
 
 describe('QueueReminderDispatcher', () => {
   let add: ReturnType<typeof vi.fn>;
+  let getJob: ReturnType<typeof vi.fn>;
   let dispatcher: QueueReminderDispatcher;
 
   beforeEach(() => {
     reminders.where.mockClear();
     reminders.update.mockReset().mockResolvedValue(null);
     add = vi.fn().mockResolvedValue({});
-    dispatcher = new QueueReminderDispatcher({ add } as unknown as Queue);
+    getJob = vi.fn().mockResolvedValue(undefined);
+    dispatcher = new QueueReminderDispatcher({
+      add,
+      getJob,
+    } as unknown as Queue);
   });
 
   it('encola un job por reminder con jobId = reminder.id, attempts y backoff', async () => {
@@ -81,5 +87,34 @@ describe('QueueReminderDispatcher', () => {
       'queue down',
     );
     expect(reminders.update).not.toHaveBeenCalled();
+  });
+
+  it('elimina un job fallido con el mismo id antes de encolar', async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    getJob.mockResolvedValue({
+      isFailed: vi.fn().mockResolvedValue(true),
+      remove,
+    });
+
+    await dispatcher.dispatch([reminder('r1')]);
+
+    expect(getJob).toHaveBeenCalledWith('r1');
+    expect(remove).toHaveBeenCalled();
+    expect(remove.mock.invocationCallOrder[0]).toBeLessThan(
+      add.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('no elimina un job que no ha fallado (dedup)', async () => {
+    const remove = vi.fn();
+    getJob.mockResolvedValue({
+      isFailed: vi.fn().mockResolvedValue(false),
+      remove,
+    });
+
+    await dispatcher.dispatch([reminder('r1')]);
+
+    expect(remove).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalled();
   });
 });

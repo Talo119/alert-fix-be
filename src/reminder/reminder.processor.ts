@@ -28,13 +28,13 @@ export class ReminderProcessor extends WorkerHost {
     if (reminder.status === ReminderStatus.SENT) return; // idempotencia
 
     // Un error aquí (normal) hace que BullMQ reintente con backoff.
-    await this.sender.send(reminder);
+    const result = await this.sender.send(reminder);
 
     await db.orm.public.Reminder.where({ id: reminder.id }).update({
       status: ReminderStatus.SENT,
       sentAt: new Date(),
       lastError: null,
-      // externalMessageId: result.externalMessageId ?? null — llega con el spec 03
+      externalMessageId: result.externalMessageId ?? null,
     });
   }
 

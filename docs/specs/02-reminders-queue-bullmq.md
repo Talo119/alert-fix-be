@@ -92,6 +92,8 @@ export class QueueReminderDispatcher extends ReminderDispatcher {
 
 **Orden: primero encolar, después marcar `QUEUED`.** Si el proceso cae entre ambos pasos, el reminder sigue `PENDING`; el siguiente run lo re-encola con el mismo `jobId` y BullMQ lo descarta si el job aún existe. Si el job ya terminó y se borró (`removeOnComplete`), el worker ya lo marcó `SENT` y el cron no lo vuelve a seleccionar.
 
+**Jobs fallidos y reintento manual.** Un job `failed` se conserva (`removeOnFail`) y bloquearía el `add` con el mismo `jobId`: el reminder quedaría `QUEUED` sin job que lo procese. Por eso, si un reminder `FAILED` se vuelve a poner `PENDING`, el dispatcher elimina el job fallido antes de encolar.
+
 Valores de `attempts`/`backoff`: constantes en `reminder-queue.ts`; se pueden pasar a `.env` más adelante.
 
 ### Puerto `ReminderSender` (`src/reminder/reminder-sender.ts`)

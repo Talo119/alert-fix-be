@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'5cbcc9dbb29b22701d3e9f4092c7be2f1d41f5bb4574b9fe989066db91801fd8'>;
+  StorageHashBase<'62cc4fdc86987ec538abdbeaa771c34938108408d9cadbf2a2de4770122d731f'>;
 export type ExecutionHash =
   ExecutionHashBase<'0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884'>;
 export type ProfileHash =
@@ -355,6 +355,7 @@ export namespace Models {
   };
   export type public_Reminder = {
     createdAt: FieldOutputTypes['public']['Reminder']['createdAt'];
+    externalMessageId: FieldOutputTypes['public']['Reminder']['externalMessageId'];
     id: FieldOutputTypes['public']['Reminder']['id'];
     lastError: FieldOutputTypes['public']['Reminder']['lastError'];
     message: FieldOutputTypes['public']['Reminder']['message'];
@@ -734,6 +735,12 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                   readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly externalMessageId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly id: {
@@ -1290,6 +1297,10 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
+              readonly externalMessageId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly id: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1354,6 +1365,7 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly externalMessageId: { readonly column: 'externalMessageId' };
                 readonly id: { readonly column: 'id' };
                 readonly lastError: { readonly column: 'lastError' };
                 readonly message: { readonly column: 'message' };

@@ -8,17 +8,21 @@ import { QueueReminderDispatcher } from './queue-reminder-dispatcher.js';
 import { REMINDERS_QUEUE } from './reminder-queue.js';
 import { ReminderProcessor } from './reminder.processor.js';
 import { ReminderSender } from './reminder-sender.js';
-import { LoggingReminderSender } from './logging-reminder-sender.js';
+import { WhatsappReminderSender } from './whatsapp-reminder-sender.js';
+import { WhatsappModule } from '../whatsapp/whatsapp.module.js';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: REMINDERS_QUEUE })],
+  imports: [
+    BullModule.registerQueue({ name: REMINDERS_QUEUE }),
+    WhatsappModule,
+  ],
   controllers: [ReminderController],
   providers: [
     ReminderService,
     ReminderSchedulerService,
     { provide: ReminderDispatcher, useClass: QueueReminderDispatcher },
     ReminderProcessor,
-    { provide: ReminderSender, useClass: LoggingReminderSender },
+    { provide: ReminderSender, useClass: WhatsappReminderSender },
   ],
 })
 export class ReminderModule {}

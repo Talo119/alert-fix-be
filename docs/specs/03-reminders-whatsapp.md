@@ -32,7 +32,7 @@ Hola {{1}}, te recordamos tu servicio de mantenimiento programado para el {{2}}.
 ```
 
 - `{{1}}` = `Client.name`
-- `{{2}}` = `OrderHeader.serviceDate` formateada en `REMINDER_TZ` (p. ej. `martes 25 de noviembre, 9:00 a. m.`) con `Intl.DateTimeFormat('es', …)`
+- `{{2}}` = `OrderHeader.serviceDate` formateada en `REMINDER_TZ` (p. ej. `martes, 25 de noviembre, 9:00 a. m.`) con `Intl.DateTimeFormat('es', …)`
 - `{{3}}` = `Reminder.message`
 
 Los parámetros no pueden contener saltos de línea, tabs ni más de 4 espacios seguidos: normalizarlos antes de enviar.
@@ -82,7 +82,7 @@ export class WhatsappService {
 
 ### Errores
 
-`WhatsappApiError extends Error` con `status`, `code` (código de error de Meta) y `retryable`.
+`WhatsappApiError extends Error` con `status`, `code` (código de error de Meta) y `retryable`. `WhatsappService` siempre lanza `WhatsappApiError` (así `WhatsappModule` no depende de BullMQ); `WhatsappReminderSender` convierte los que tienen `retryable: false` en `UnrecoverableError`.
 
 | Caso | Acción |
 |---|---|
@@ -90,8 +90,9 @@ export class WhatsappService {
 | `429` o código de Meta de rate limit | error normal → BullMQ reintenta |
 | `5xx`, timeout, error de red | error normal → BullMQ reintenta |
 | otro `4xx` (token inválido, plantilla inexistente, número no válido…) | `UnrecoverableError` → `FAILED` sin reintentos |
+| `2xx` sin `messages[0].id` | `UnrecoverableError` (Meta aceptó la petición; reintentar podría duplicar) |
 
-Revisar la tabla de códigos de error de la Cloud API al implementar: algunos `400` son temporales (p. ej. límites de throughput) y deben tratarse como reintentables.
+Algunos `4xx` son temporales y se reintentan según el código de Meta (`RETRYABLE_META_CODES` en `src/whatsapp/whatsapp-api.error.ts`): `1`, `2`, `4`, `80007`, `130429`, `131000`, `131016`, `131056`, `133004`. `131048` (spam rate limit) **no** se reintenta a propósito: insistir empeora la calidad del número.
 
 ### `WhatsappReminderSender` (`src/reminder/whatsapp-reminder-sender.ts`)
 
@@ -154,10 +155,13 @@ En `Reminder`:
 
 - `whatsapp.service.spec.ts` con `vi.spyOn(globalThis, 'fetch')`:
   - 200 → devuelve `messageId`; el body enviado tiene `messaging_product`, `to`, plantilla y parámetros correctos; header `Authorization`.
-  - 400 → `UnrecoverableError`.
-  - 429 y 500 → error reintentable (no `UnrecoverableError`).
-  - Timeout (`AbortError`) → reintentable.
-- `whatsapp-reminder-sender.spec.ts`: teléfono faltante/inválido → `UnrecoverableError`; normalización (`+504 9999-8888` → `50499998888`, `99998888` → `50499998888`); saneado de parámetros; cliente inactivo.
+  - 400/401 → `WhatsappApiError` con `retryable: false`.
+  - 429, 500, 502 sin JSON y `400` con código de throughput → `retryable: true`.
+  - Timeout (`TimeoutError`/`AbortError`) y error de red → reintentable.
+  - El token no aparece en logs y el teléfono sale enmascarado.
+- `whatsapp-format.spec.ts`: normalización (`+504 9999-8888` → `50499998888`, `99998888` → `50499998888`, `00…`, otros países) y saneado de parámetros.
+- `whatsapp.config.spec.ts`: variables faltantes hacen fallar la carga.
+- `whatsapp-reminder-sender.spec.ts`: teléfono faltante/inválido → `UnrecoverableError`; cliente inactivo; parámetros y fecha formateada; `WhatsappApiError` no reintentable → `UnrecoverableError`, reintentable → se propaga tal cual.
 - Prueba manual: con el número de prueba de Meta y un teléfono registrado, crear un reminder `PENDING` vencido, ejecutar `processDueReminders()` y comprobar que llega el WhatsApp y el reminder queda `SENT` con `externalMessageId`.
 
 ## Criterios de aceptación
