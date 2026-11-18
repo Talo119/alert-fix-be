@@ -486,6 +486,13 @@
                   "kind": "scalar"
                 }
               },
+              "lastError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "message": {
                 "nullable": false,
                 "type": {
@@ -502,6 +509,16 @@
               },
               "remindAt": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "sentAt": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/timestamptz-date@1",
                   "kind": "scalar",
@@ -554,6 +571,9 @@
                 "id": {
                   "column": "id"
                 },
+                "lastError": {
+                  "column": "lastError"
+                },
                 "message": {
                   "column": "message"
                 },
@@ -562,6 +582,9 @@
                 },
                 "remindAt": {
                   "column": "remindAt"
+                },
+                "sentAt": {
+                  "column": "sentAt"
                 },
                 "status": {
                   "column": "status"
@@ -1202,6 +1225,11 @@
                   "dataType": "pg/text",
                   "nullable": false
                 },
+                "lastError": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "message": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1216,6 +1244,14 @@
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
                   "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "sentAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true,
                   "typeParams": {
                     "precision": 3
                   }
@@ -1465,7 +1501,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "1339c6841212c5d2d542c4b1be8d0dd2bcbfeb9088ed936cd662c2b1fce1e060"
+    "storageHash": "5cbcc9dbb29b22701d3e9f4092c7be2f1d41f5bb4574b9fe989066db91801fd8"
   },
   "execution": {
     "executionHash": "0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884",

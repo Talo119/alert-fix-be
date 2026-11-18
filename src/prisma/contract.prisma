@@ -74,6 +74,8 @@ model Reminder {
   message   String
   remindAt  DateTime
   status    String
+  sentAt    DateTime?
+  lastError String?
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }

@@ -1,16 +1,24 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ReminderService } from './reminder.service.js';
 import { ReminderController } from './reminder.controller.js';
 import { ReminderSchedulerService } from './reminder-scheduler.service.js';
 import { ReminderDispatcher } from './reminder-dispatcher.js';
-import { LoggingReminderDispatcher } from './logging-reminder-dispatcher.js';
+import { QueueReminderDispatcher } from './queue-reminder-dispatcher.js';
+import { REMINDERS_QUEUE } from './reminder-queue.js';
+import { ReminderProcessor } from './reminder.processor.js';
+import { ReminderSender } from './reminder-sender.js';
+import { LoggingReminderSender } from './logging-reminder-sender.js';
 
 @Module({
+  imports: [BullModule.registerQueue({ name: REMINDERS_QUEUE })],
   controllers: [ReminderController],
   providers: [
     ReminderService,
     ReminderSchedulerService,
-    { provide: ReminderDispatcher, useClass: LoggingReminderDispatcher },
+    { provide: ReminderDispatcher, useClass: QueueReminderDispatcher },
+    ReminderProcessor,
+    { provide: ReminderSender, useClass: LoggingReminderSender },
   ],
 })
 export class ReminderModule {}

@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'1339c6841212c5d2d542c4b1be8d0dd2bcbfeb9088ed936cd662c2b1fce1e060'>;
+  StorageHashBase<'5cbcc9dbb29b22701d3e9f4092c7be2f1d41f5bb4574b9fe989066db91801fd8'>;
 export type ExecutionHash =
   ExecutionHashBase<'0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884'>;
 export type ProfileHash =
@@ -356,9 +356,11 @@ export namespace Models {
   export type public_Reminder = {
     createdAt: FieldOutputTypes['public']['Reminder']['createdAt'];
     id: FieldOutputTypes['public']['Reminder']['id'];
+    lastError: FieldOutputTypes['public']['Reminder']['lastError'];
     message: FieldOutputTypes['public']['Reminder']['message'];
     orderId: FieldOutputTypes['public']['Reminder']['orderId'];
     remindAt: FieldOutputTypes['public']['Reminder']['remindAt'];
+    sentAt: FieldOutputTypes['public']['Reminder']['sentAt'];
     status: FieldOutputTypes['public']['Reminder']['status'];
     updatedAt: FieldOutputTypes['public']['Reminder']['updatedAt'];
     order: public_OrderHeader | null;
@@ -740,6 +742,12 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly many: false;
                 };
+                readonly lastError: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly message: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
@@ -756,6 +764,13 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
                   readonly nullable: false;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly sentAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
@@ -1279,6 +1294,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly lastError: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly message: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1289,6 +1308,14 @@ type ContractBase = Omit<
               };
               readonly remindAt: {
                 readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly sentAt: {
+                readonly nullable: true;
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'pg/timestamptz-date@1';
@@ -1328,9 +1355,11 @@ type ContractBase = Omit<
               readonly fields: {
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly id: { readonly column: 'id' };
+                readonly lastError: { readonly column: 'lastError' };
                 readonly message: { readonly column: 'message' };
                 readonly orderId: { readonly column: 'orderId' };
                 readonly remindAt: { readonly column: 'remindAt' };
+                readonly sentAt: { readonly column: 'sentAt' };
                 readonly status: { readonly column: 'status' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };

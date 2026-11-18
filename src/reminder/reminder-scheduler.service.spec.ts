@@ -27,6 +27,8 @@ const reminder = (id: string, remindAt: string): Reminder => ({
   message: `Mensaje ${id}`,
   remindAt: new Date(remindAt),
   status: ReminderStatus.PENDING,
+  sentAt: null,
+  lastError: null,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   updatedAt: new Date('2026-11-01T00:00:00Z'),
 });

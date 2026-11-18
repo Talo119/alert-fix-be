@@ -37,24 +37,19 @@ No se instala `ioredis`.
 ```ts
 import { BullModule } from '@nestjs/bullmq';
 import { createPostgresBackend } from 'bullmq';
+import { bullmqPostgresConnection } from './queue/postgres-connection.js';
 
-const dbUrl = new URL(process.env.DATABASE_URL!);
-
-BullModule.forRoot({
-  backendFactory: createPostgresBackend,
-  connection: {
-    host: dbUrl.hostname,
-    port: Number(dbUrl.port || 5432),
-    user: decodeURIComponent(dbUrl.username),
-    password: decodeURIComponent(dbUrl.password),
-    database: dbUrl.pathname.slice(1),
-    migrate: true,
-  },
+BullModule.forRootAsync({
+  useFactory: () => ({
+    backendFactory: createPostgresBackend,
+    connection: bullmqPostgresConnection(), // { connectionString: DATABASE_URL, migrate: true }
+  }),
 }),
 ```
 
-- Se parsea `DATABASE_URL` porque la documentación solo muestra campos separados y no dice si acepta una URL. Extraer el parseo a `src/queue/postgres-connection.ts` con su test.
-- `migrate: true` crea las tablas de BullMQ al arrancar en un schema propio `bullmq`, separado del schema `public` de Prisma. Sin esa opción la app falla en una base sin esas tablas.
+- **Cambio respecto al borrador:** no se parsea `DATABASE_URL`. Los tipos de BullMQ 6.7 (`PostgresPoolConfig`) aceptan `connectionString` dentro del objeto de configuración, y `pg` decodifica usuario/contraseña. Tiene que ser la forma de objeto: con una cadena suelta BullMQ ignora `migrate` (y `schema`). El helper vive en `src/queue/postgres-connection.ts` y falla si falta `DATABASE_URL`.
+- Se usa `forRootAsync` para leer `DATABASE_URL` al inicializar el módulo y no al importar `app.module.ts` (antes de que se cargue `.env` en `start:prod`).
+- `migrate: true` crea las tablas de BullMQ al arrancar en un schema propio `bullmq` (`DEFAULT_SCHEMA` de BullMQ), separado del schema `public` de Prisma. Sin esa opción la app falla en una base sin esas tablas.
 - `backendFactory` se propaga a `Queue`, `Worker`, `QueueEvents` y `FlowProducer`.
 
 ### Cola (`src/reminder/reminder-queue.ts` + `ReminderModule`)
@@ -179,7 +174,7 @@ Luego: `npm run contract:emit`, generar/aplicar la migración (`migrations/`), y
   - Reminder ya `SENT` → no llama a `sender.send`.
   - Reminder inexistente → `UnrecoverableError`.
   - `onFailed` con intentos restantes → solo `lastError`; con el último intento o `UnrecoverableError` → `FAILED`.
-- `postgres-connection.spec.ts`: parseo de URL con usuario/contraseña codificados y puerto por defecto.
+- `postgres-connection.spec.ts`: devuelve `{ connectionString, migrate: true }` (forma de objeto) y falla sin URL.
 - Prueba manual con Postgres local: insertar un `Reminder` `PENDING` vencido, llamar a `processDueReminders()` y comprobar `PENDING → QUEUED → SENT`; comprobar que existe el schema `bullmq`.
 
 ## Criterios de aceptación
@@ -194,5 +189,5 @@ Luego: `npm run contract:emit`, generar/aplicar la migración (`migrations/`), y
 
 - **Backend PostgreSQL de BullMQ**: la doc de Nest no detalla limitaciones frente a Redis (eventos, backoff, dedup por `jobId`, delayed jobs). Validar en bullmq.io antes de implementar y cubrirlo con la prueba manual.
 - Que `prisma db init` / migraciones de Prisma ignoren el schema `bullmq` y no intenten borrarlo.
-- Firma exacta del evento `failed` en `WorkerListener` y el campo `attemptsMade` (en BullMQ v5+ cuenta los intentos ya hechos).
+- ~~Firma exacta del evento `failed` y `attemptsMade`~~ — verificado en BullMQ 6.7.7: `failed: (job | undefined, error, prev)`, y `Job.moveToFailed` incrementa `attemptsMade` antes de emitir `failed`, así que `attemptsMade >= attempts` identifica el último intento.
 - Pool de conexiones: BullMQ abre conexiones propias a la misma base; revisar `max_connections` de Postgres.

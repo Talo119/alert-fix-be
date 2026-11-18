@@ -4,6 +4,9 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ReminderModule } from './reminder/reminder.module.js';
+import { BullModule } from '@nestjs/bullmq';
+import { createPostgresBackend } from 'bullmq';
+import { bullmqPostgresConnection } from './queue/postgres-connection.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -18,6 +21,14 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'alter-fix-be',
     }),
     ScheduleModule.forRoot(),
+    // BullMQ sobre PostgreSQL (sin Redis). Factory para leer DATABASE_URL al
+    // inicializar el módulo, no al importar este archivo.
+    BullModule.forRootAsync({
+      useFactory: () => ({
+        backendFactory: createPostgresBackend,
+        connection: bullmqPostgresConnection(),
+      }),
+    }),
     ReminderModule,
   ],
   controllers: [AppController],
