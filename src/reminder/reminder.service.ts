@@ -23,9 +23,15 @@ export class ReminderService {
       return reminder;
     } catch (error) {
       if (error instanceof Error) {
-        this.logger.error(`Failed to find reminder with id: ${id}`, error.message);
+        this.logger.error(
+          `Failed to find reminder with id: ${id}`,
+          error.message,
+        );
       } else {
-        this.logger.error(`Failed to find reminder with id: ${id}`, String(error));
+        this.logger.error(
+          `Failed to find reminder with id: ${id}`,
+          String(error),
+        );
       }
     }
   }

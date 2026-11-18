@@ -3,7 +3,6 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ScheduleModule } from '@nestjs/schedule';
-import { RemindersService } from './reminders/reminders.service.js';
 import { ReminderModule } from './reminder/reminder.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -22,6 +21,6 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ReminderModule,
   ],
   controllers: [AppController],
-  providers: [AppService, RemindersService],
+  providers: [AppService],
 })
 export class AppModule {}
