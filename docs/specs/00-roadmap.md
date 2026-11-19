@@ -6,7 +6,7 @@
 
 | # | Modelo | Recurso | Depende de | Estado | Spec |
 |---|---|---|---|---|---|
-| 1 | Company | `company` | — | Pendiente | — |
+| 1 | Company | `company` | — | Implementado | [04](./04-resource-company.md) |
 | 2 | User | `user` | Company | Implementado | — |
 | 3 | Client | `client` | Company | Pendiente | — |
 | 4 | Service | `service` | Company | Pendiente | — |
