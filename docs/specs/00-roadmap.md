@@ -25,5 +25,6 @@
 
 Ninguno. Resueltos el 2026-11-19:
 
+- Documentación OpenAPI con `@nestjs/swagger` en `/docs` (solo fuera de producción): [05](./05-openapi-swagger.md). Los recursos nuevos deben llevar `@ApiTags` y usar `PartialType` de `@nestjs/swagger`.
 - `ValidationPipe` global en `src/main.ts` (`whitelist`, `forbidNonWhitelisted`, `transform`), con `class-transformer` como dependencia.
 - Correcciones en `src/user/`: sin `db.close()`, `NotFoundException` solo cuando el registro no existe (los errores de BD se propagan), sin `id` en `CreateUserDto`, sin `dto/user-item.dto.ts` y con `ParseUUIDPipe` en `:id`.
