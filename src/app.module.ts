@@ -7,6 +7,7 @@ import { ReminderModule } from './reminder/reminder.module.js';
 import { BullModule } from '@nestjs/bullmq';
 import { createPostgresBackend } from 'bullmq';
 import { bullmqPostgresConnection } from './queue/postgres-connection.js';
+import { UserModule } from './user/user.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -30,6 +31,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
     ReminderModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
