@@ -8,7 +8,7 @@ argument-hint: <Modelo>
 
 Escribe el spec para implementar el recurso CRUD de **un** modelo del contract y lleva el control en el roadmap.
 
-**Esta skill solo escribe documentación.** Crea o edita únicamente `docs/specs/NN-resource-<kebab>.md` y `docs/specs/00-roadmap.md`. No ejecuta `nest g resource` ni toca `src/`: eso lo hace quien implementa el spec.
+**Esta skill solo escribe documentación.** Crea o edita únicamente `docs/specs/NN-resource-<kebab>.md` y `docs/specs/00-roadmap.md`. No ejecuta `nest g resource` ni toca `src/`: eso lo hace quien implementa el spec. Todo spec de recurso debe incluir el paso de **actualizar la documentación Swagger** (ver *Swagger (OpenAPI)*), para que cada recurso nuevo quede documentado en `/docs` al implementarse.
 
 Argumento: `$ARGUMENTS` (nombre del modelo).
 
@@ -32,7 +32,9 @@ Argumento: `$ARGUMENTS` (nombre del modelo).
 - **El modelo en el contract:** cada campo con su tipo, `?`, `@unique`, `@default`, `@onCreate`, `temporal.UpdatedAt`, las relaciones (`@relation(fields: [xId], references: [id])`) y las listas inversas (`users User[]`).
 - **Dependencias:** cada modelo al que apunta un FK, con su estado en el roadmap.
 - **Modelos que dependen de este:** los que tienen un FK hacia él. Sirve para la nota sobre borrado en *Notas*.
-- **Referencia:** `src/user/` (module, controller, service, dto). Es la base de estructura, con las correcciones de *Reglas del spec*.
+- **¿Tiene campo `active`?** Si el modelo declara `active Boolean`, `findAll` debe filtrar por `active: true` (ver *Service*).
+- **Referencia:** `src/company/` y `src/user/` (module, controller, service, dto). Son la base de estructura, con las correcciones de *Reglas del spec*.
+- **Swagger:** lee `src/swagger.ts` (los `.addTag(...)` actuales) y `docs/specs/05-openapi-swagger.md` (*Reglas para recursos nuevos*).
 - **¿Ya existe `src/<kebab>/`?** Léelo completo. Si existe (p. ej. `src/reminder/`), el spec **no** debe pedir `nest g resource`: debe pedir completar los métodos stub y conservar el resto (cron, cola, sender, etc.). Indícalo en *Contexto* y en el paso 1.
 
 ### 4. Numerar
@@ -87,7 +89,7 @@ En pocas líneas:
 
 Las propiedades opcionales se declaran con `?` (`phoneNumber?: string`).
 
-**`Update<Model>Dto`:** `PartialType(Create<Model>Dto)` de `@nestjs/mapped-types`, como `src/user/dto/update-user.dto.ts`.
+**`Update<Model>Dto`:** `PartialType(Create<Model>Dto)` importado de **`@nestjs/swagger`** (no de `@nestjs/mapped-types`), para que el esquema OpenAPI herede las propiedades.
 
 No se crean DTOs adicionales: `src/user/dto/user-item.dto.ts` es un duplicado y no se replica.
 
@@ -110,10 +112,23 @@ El spec **debe** pedir estas correcciones al patrón de user:
 6. **`@unique`** (p. ej. `email`, `name`): un duplicado responde `409 ConflictException`. Comprueba antes con `where({ campo }).first()`.
 7. **Fechas:** convertir los strings de `DateTime` con `new Date(...)` antes de `create`/`update`.
 8. **`await` en todas las promesas.** Lint trata `typescript/no-floating-promises` como error.
+9. **`findAll` y el campo `active`:** si el modelo tiene `active Boolean`, `findAll` devuelve solo los registros activos: `db.orm.public.<Model>.where({ active: true }).all()`. Si no lo tiene, `db.orm.public.<Model>.all()`. `findOne`, `update` y `remove` no filtran por `active` (un registro inactivo sigue siendo accesible por id, p. ej. para reactivarlo con `PATCH { "active": true }`); el spec lo indica en *Notas*.
+
+### Swagger (OpenAPI)
+
+Swagger ya está configurado (`src/swagger.ts`, spec 05) y el plugin CLI de `@nestjs/swagger` genera los esquemas desde los DTOs y class-validator, sin `@ApiProperty` manuales. Cada spec de recurso **debe** pedir:
+
+1. `@ApiTags('<kebab>')` (de `@nestjs/swagger`) en el controller, encima de `@Controller('<kebab>')`.
+2. Añadir `.addTag('<kebab>')` al `DocumentBuilder` de `setupSwagger` en `src/swagger.ts`, junto a los tags existentes.
+3. `PartialType` (y `PickType` / `OmitType` / `IntersectionType` si se usan) desde `@nestjs/swagger`.
+4. Mantener los sufijos `.dto.ts` y `.controller.ts`; el plugin no procesa otros nombres.
+5. Un comentario JSDoc de una línea sobre cada método del controller (p. ej. `/** Lista los <modelos> activos. */`), que el plugin convierte en el `summary` de la operación.
+6. Añadir el recurso a la lista de recursos documentados en `docs/specs/05-openapi-swagger.md` (*Contexto* e *Implementación*: tags).
+7. Verificar con `npm run start:dev` que `/docs` muestra el tag y que `curl localhost:3000/docs-json` incluye las rutas `/<kebab>` y `/<kebab>/{id}`.
 
 ### Controller
 
-Usa el controller del scaffold, con `@Param('id', ParseUUIDPipe) id: string` en `findOne`, `update` y `remove`. El `id` es un UUID string: nunca `+id`.
+Usa el controller del scaffold, con `@Param('id', ParseUUIDPipe) id: string` en `findOne`, `update` y `remove`. El `id` es un UUID string: nunca `+id`. Lleva `@ApiTags('<kebab>')` y JSDoc por método (ver *Swagger (OpenAPI)*); `src/company/company.controller.ts` es la referencia.
 
 ### Entity
 
@@ -127,13 +142,14 @@ Usa el del scaffold. `nest g resource` lo registra en `AppModule`; el spec pide 
 
 **Service:**
 - mock del módulo de base de datos con `vi.mock('../prisma/db.js', () => ({ db: { orm: { public: { <Model>: { ... } } } } }))`, con `vi.fn()` encadenables;
-- casos: `create` ok, `create` con FK inexistente → 400, `create` con duplicado `@unique` → 409 (si aplica), `findAll`, `findOne` existe, `findOne` no existe → 404, `update` ok, `update` de un id inexistente → 404, `remove` ok, `remove` de un id inexistente → 404.
+- casos: `create` ok, `create` con FK inexistente → 400, `create` con duplicado `@unique` → 409 (si aplica), `findAll` (si el modelo tiene `active`: verificar que llama a `where({ active: true })` antes de `all()`), `findOne` existe, `findOne` no existe → 404, `update` ok, `update` de un id inexistente → 404, `remove` ok, `remove` de un id inexistente → 404.
 
 **Controller:** el service se sustituye por un objeto de `vi.fn()` con `{ provide: <Model>Service, useValue: ... }`. Se verifica que cada endpoint delega con los argumentos correctos.
 
 ### Otras notas que el spec debe incluir
 
-- **Validación:** la validación con class-validator solo se aplica cuando haya un `ValidationPipe` global en `main.ts`. Está en *Pendientes transversales* del roadmap. Mientras no exista, los DTOs documentan el contrato, pero no se validan.
+- **Validación:** `src/main.ts` ya tiene un `ValidationPipe` global con `whitelist` y `forbidNonWhitelisted`, así que un campo que no esté en el DTO responde 400.
+- **`active`:** si el modelo lo tiene, `findAll` solo lista los activos; `findOne`/`update`/`remove` siguen viendo los inactivos.
 - **Modelos que dependen de este** (tienen un FK hacia él): avisar que `remove` puede fallar por la restricción de FK, y que borrado lógico (`active = false`) o cascada queda fuera de alcance, salvo que el modelo ya tenga `active`. En ese caso, mencionarlo como alternativa futura.
 
 ## Formato del roadmap
