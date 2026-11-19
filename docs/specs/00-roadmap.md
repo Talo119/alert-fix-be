@@ -2,12 +2,12 @@
 
 > Control de los modelos de `src/prisma/contract.prisma` y su recurso CRUD.
 > Generar el spec de un modelo: `/resource-spec <Modelo>`.
-> Última actualización: 2026-11-18
+> Última actualización: 2026-11-19
 
 | # | Modelo | Recurso | Depende de | Estado | Spec |
 |---|---|---|---|---|---|
 | 1 | Company | `company` | — | Pendiente | — |
-| 2 | User | `user` | Company | Implementado (con observaciones, ver abajo) | — |
+| 2 | User | `user` | Company | Implementado | — |
 | 3 | Client | `client` | Company | Pendiente | — |
 | 4 | Service | `service` | Company | Pendiente | — |
 | 5 | OrderHeader | `order-header` | Client, Company | Pendiente | — |
@@ -23,10 +23,7 @@
 
 ## Pendientes transversales
 
-- **`ValidationPipe` global** en `src/main.ts`. Sin él no se aplican los decoradores de class-validator de ningún DTO.
-- **Correcciones en `src/user/`:**
-  - quitar `db.close()` después de cada query (cierra la instancia compartida);
-  - lanzar `NotFoundException` solo cuando el registro no existe;
-  - quitar `id` del `CreateUserDto` (lo genera `@onCreate(uuid())`);
-  - eliminar `dto/user-item.dto.ts` (duplica `CreateUserDto`);
-  - añadir `ParseUUIDPipe` en `:id`.
+Ninguno. Resueltos el 2026-11-19:
+
+- `ValidationPipe` global en `src/main.ts` (`whitelist`, `forbidNonWhitelisted`, `transform`), con `class-transformer` como dependencia.
+- Correcciones en `src/user/`: sin `db.close()`, `NotFoundException` solo cuando el registro no existe (los errores de BD se propagan), sin `id` en `CreateUserDto`, sin `dto/user-item.dto.ts` y con `ParseUUIDPipe` en `:id`.

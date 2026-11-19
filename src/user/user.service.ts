@@ -5,89 +5,43 @@ import { db } from '../prisma/db.js';
 
 @Injectable()
 export class UserService {
-  private readonly logger = new Logger('UserService');
+  private readonly logger = new Logger(UserService.name);
+
   async create(createUserDto: CreateUserDto) {
-    try {
-      this.logger.log(`Creating user with ID: ${createUserDto.id}`);
-      const user = await db.orm.public.User.create(createUserDto);
-      await db.close();
-      return user;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error('Failed to create user', error.message);
-      } else {
-        this.logger.error('Failed to create user', String(error));
-      }
-      throw new NotFoundException('User not found');
-    }
+    const user = await db.orm.public.User.create(createUserDto);
+    this.logger.log(`Created user ${user.id}`);
+    return user;
   }
 
-  async findAll() {
-    try {
-      this.logger.log('Fetching all users');
-      const users = await db.orm.public.User.all();
-      await db.close();
-      return users;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error('Failed to fetch users', error.message);
-      } else {
-        this.logger.error('Failed to fetch users', String(error));
-      }
-      throw new NotFoundException('Users not found');
-    }
+  findAll() {
+    return db.orm.public.User.all();
   }
 
   async findOne(id: string) {
-    try {
-      this.logger.log(`Fetching user with ID: ${id}`);
-      const user = await db.orm.public.User.whereUnique({ id }).first();
-      await db.close();
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-      return user;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error('Failed to fetch user', error.message);
-      } else {
-        this.logger.error('Failed to fetch user', String(error));
-      }
-      throw new NotFoundException('User not found');
+    const user = await db.orm.public.User.whereUnique({ id }).first();
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
     }
+    return user;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
-    try {
-      this.logger.log(`Updating user with ID: ${id}`);
-      const user = await db.orm.public.User.whereUnique({ id }).update(
-        updateUserDto,
-      );
-      await db.close();
-      return user;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error('Failed to update user', error.message);
-      } else {
-        this.logger.error('Failed to update user', String(error));
-      }
-      throw new NotFoundException('User not found');
+    const user = await db.orm.public.User.whereUnique({ id }).update(
+      updateUserDto,
+    );
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
     }
+    this.logger.log(`Updated user ${id}`);
+    return user;
   }
 
   async remove(id: string) {
-    try {
-      this.logger.log(`Removing user with ID: ${id}`);
-      const user = await db.orm.public.User.where({ id }).delete();
-      await db.close();
-      return user;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error('Failed to remove user', error.message);
-      } else {
-        this.logger.error('Failed to remove user', String(error));
-      }
-      throw new NotFoundException('User not found');
+    const user = await db.orm.public.User.whereUnique({ id }).delete();
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
     }
+    this.logger.log(`Removed user ${id}`);
+    return user;
   }
 }
