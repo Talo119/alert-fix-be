@@ -10,6 +10,9 @@ import { bullmqPostgresConnection } from './queue/postgres-connection.js';
 import { UserModule } from './user/user.module.js';
 import { CompanyModule } from './company/company.module.js';
 import { ClientModule } from './client/client.module.js';
+import { ServiceModule } from './service/service.module.js';
+import { OrderHeaderModule } from './order-header/order-header.module.js';
+import { OrderEntryModule } from './order-entry/order-entry.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -36,6 +39,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     UserModule,
     CompanyModule,
     ClientModule,
+    ServiceModule,
+    OrderHeaderModule,
+    OrderEntryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

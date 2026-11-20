@@ -4,7 +4,7 @@
 
 ## Contexto
 
-La API REST (`company`, `client`, `user`, `reminder`) no tenía documentación navegable. Se añade `@nestjs/swagger`, el paquete oficial de Nest, para servir Swagger UI y el documento OpenAPI generados a partir de los controladores y DTOs.
+La API REST (`company`, `client`, `service`, `order-header`, `order-entry`, `user`, `reminder`) no tenía documentación navegable. Se añade `@nestjs/swagger`, el paquete oficial de Nest, para servir Swagger UI y el documento OpenAPI generados a partir de los controladores y DTOs.
 
 ## Decisiones
 
@@ -22,7 +22,7 @@ La API REST (`company`, `client`, `user`, `reminder`) no tenía documentación n
 
 ## Implementación
 
-- `src/swagger.ts`: `setupSwagger(app)` (`DocumentBuilder` con título `AlertFix API`, tags `company`, `client`, `user`, `reminder`) e `isSwaggerEnabled(env)`.
+- `src/swagger.ts`: `setupSwagger(app)` (`DocumentBuilder` con título `AlertFix API`, tags `company`, `client`, `service`, `order-header`, `order-entry`, `user`, `reminder`) e `isSwaggerEnabled(env)`.
 - `src/main.ts`: llama a `setupSwagger(app)` después de los pipes globales y antes de `listen`.
 - Controladores: `@ApiTags('<recurso>')`. `AppController` lleva `@ApiExcludeController()`.
 - DTOs de update: `PartialType` importado de `@nestjs/swagger`, no de `@nestjs/mapped-types`, para que el esquema herede las propiedades.
