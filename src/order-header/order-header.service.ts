@@ -8,7 +8,11 @@ import {
 } from '@nestjs/common';
 import { db } from '../prisma/db.js';
 import { CreateOrderHeaderDto } from './dto/create-order-header.dto.js';
+import { OrderHeaderEntryDto } from './dto/order-header-entry.dto.js';
 import { UpdateOrderHeaderDto } from './dto/update-order-header.dto.js';
+
+/** `db.orm.public` o `tx.orm.public`: la misma API dentro y fuera de una transacción. */
+type Orm = typeof db.orm.public;
 
 @Injectable()
 export class OrderHeaderService {
@@ -16,13 +20,20 @@ export class OrderHeaderService {
 
   async create(createOrderHeaderDto: CreateOrderHeaderDto) {
     try {
-      await this.assertReferencesExist(createOrderHeaderDto);
-      const { serviceDate, ...rest } = createOrderHeaderDto;
-      const order = await db.orm.public.OrderHeader.create({
-        ...rest,
-        serviceDate: new Date(serviceDate),
+      const { serviceDate, entries, ...rest } = createOrderHeaderDto;
+      const order = await db.transaction(async (tx) => {
+        const orm = tx.orm.public;
+        await this.assertReferencesExist(orm, createOrderHeaderDto);
+        const header = await orm.OrderHeader.create({
+          ...rest,
+          serviceDate: new Date(serviceDate),
+        });
+        const created = await this.createEntries(orm, header.id, entries);
+        return { ...header, entries: created };
       });
-      this.logger.log(`Created order ${order.id}`);
+      this.logger.log(
+        `Created order ${order.id} with ${order.entries.length} entries`,
+      );
       return order;
     } catch (error) {
       this.handleError('Failed to create order', error);
@@ -39,7 +50,14 @@ export class OrderHeaderService {
 
   async findOne(id: string) {
     try {
-      const order = await db.orm.public.OrderHeader.whereUnique({ id }).first();
+      // Cada línea trae su servicio (solo id, nombre y descripción).
+      const order = await db.orm.public.OrderHeader.where({ id })
+        .include('entries', (entries) =>
+          entries.include('service', (service) =>
+            service.select('id', 'name', 'description'),
+          ),
+        )
+        .first();
       if (!order) throw new NotFoundException(`OrderHeader ${id} not found`);
       return order;
     } catch (error) {
@@ -49,14 +67,36 @@ export class OrderHeaderService {
 
   async update(id: string, updateOrderHeaderDto: UpdateOrderHeaderDto) {
     try {
-      await this.findOne(id);
-      await this.assertReferencesExist(updateOrderHeaderDto);
-      const { serviceDate, ...rest } = updateOrderHeaderDto;
-      const order = await db.orm.public.OrderHeader.whereUnique({ id }).update({
-        ...rest,
-        ...(serviceDate !== undefined && {
-          serviceDate: new Date(serviceDate),
-        }),
+      const { serviceDate, entries, ...rest } = updateOrderHeaderDto;
+      const order = await db.transaction(async (tx) => {
+        const orm = tx.orm.public;
+        const existing = await orm.OrderHeader.whereUnique({ id }).first();
+        if (!existing) {
+          throw new NotFoundException(`OrderHeader ${id} not found`);
+        }
+        await this.assertReferencesExist(orm, updateOrderHeaderDto);
+
+        const data = {
+          ...rest,
+          ...(serviceDate !== undefined && {
+            serviceDate: new Date(serviceDate),
+          }),
+        };
+        const header =
+          Object.keys(data).length > 0
+            ? ((await orm.OrderHeader.whereUnique({ id }).update(data)) ??
+              existing)
+            : existing;
+
+        if (entries !== undefined) {
+          await orm.OrderEntry.where({ orderId: id }).deleteAll();
+          await this.createEntries(orm, id, entries);
+        }
+
+        return {
+          ...header,
+          entries: await orm.OrderEntry.where({ orderId: id }).all(),
+        };
       });
       this.logger.log(`Updated order ${id}`);
       return order;
@@ -76,24 +116,53 @@ export class OrderHeaderService {
     }
   }
 
-  private async assertReferencesExist({
-    clientId,
-    companyId,
-  }: UpdateOrderHeaderDto) {
+  /**
+   * Crea las líneas en secuencia (no `Promise.all`): la transacción usa una
+   * sola conexión y el primer fallo corta el resto.
+   */
+  private async createEntries(
+    orm: Orm,
+    orderId: string,
+    entries: OrderHeaderEntryDto[],
+  ) {
+    const created = [];
+    for (const { serviceId, quantity } of entries) {
+      created.push(
+        await orm.OrderEntry.create({
+          serviceId: serviceId ?? null,
+          quantity,
+          orderId,
+        }),
+      );
+    }
+    return created;
+  }
+
+  private async assertReferencesExist(
+    orm: Orm,
+    { clientId, companyId, entries }: UpdateOrderHeaderDto,
+  ) {
     if (clientId) {
-      const client = await db.orm.public.Client.whereUnique({
-        id: clientId,
-      }).first();
+      const client = await orm.Client.whereUnique({ id: clientId }).first();
       if (!client) {
         throw new BadRequestException(`Client ${clientId} does not exist`);
       }
     }
     if (companyId) {
-      const company = await db.orm.public.Company.whereUnique({
-        id: companyId,
-      }).first();
+      const company = await orm.Company.whereUnique({ id: companyId }).first();
       if (!company) {
         throw new BadRequestException(`Company ${companyId} does not exist`);
+      }
+    }
+    const serviceIds = new Set(
+      (entries ?? []).flatMap(({ serviceId }) =>
+        serviceId ? [serviceId] : [],
+      ),
+    );
+    for (const serviceId of serviceIds) {
+      const service = await orm.Service.whereUnique({ id: serviceId }).first();
+      if (!service) {
+        throw new BadRequestException(`Service ${serviceId} does not exist`);
       }
     }
   }

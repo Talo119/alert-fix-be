@@ -10,7 +10,7 @@
 | 2 | User | `user` | Company | Implementado | — |
 | 3 | Client | `client` | Company | Implementado | [06](./06-resource-client.md) |
 | 4 | Service | `service` | Company | Implementado | [07](./07-resource-service.md) |
-| 5 | OrderHeader | `order-header` | Client, Company | Implementado | [08](./08-resource-order-header.md) |
+| 5 | OrderHeader | `order-header` | Client, Company | Implementado | [08](./08-resource-order-header.md) · [10](./10-order-header-master-detail.md) |
 | 6 | OrderEntry | `order-entry` | OrderHeader, Service | Implementado | [09](./09-resource-order-entry.md) |
 | 7 | Reminder | `reminder` | OrderHeader | Parcial (solo `findOne`; el cron, la cola y WhatsApp vienen de los specs 01–03) | [01](./01-reminders-cron.md) · [02](./02-reminders-queue-bullmq.md) · [03](./03-reminders-whatsapp.md) |
 
@@ -20,6 +20,14 @@
 - **Spec lista**: spec escrito (lo marca `/resource-spec`), falta implementar.
 - **Parcial**: existe código, pero el CRUD no está completo.
 - **Implementado**: CRUD completo con tests. Lo marca quien implementa el spec, en el último paso.
+
+## Relaciones maestro-detalle
+
+Recursos maestros que crean y reemplazan sus líneas en una sola transacción (`POST`/`PATCH` con el arreglo anidado, `findOne` con `include`). El detalle conserva además su propio CRUD.
+
+| Maestro | Relación | Detalle | Spec |
+|---|---|---|---|
+| OrderHeader | `entries` | OrderEntry | [10](./10-order-header-master-detail.md) |
 
 ## Pendientes transversales
 

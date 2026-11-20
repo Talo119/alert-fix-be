@@ -21,7 +21,7 @@ Hoy no existe `src/order-header/` ni un endpoint para crear órdenes; para tener
 
 **Dentro:** module, controller, service, DTOs, documentación Swagger (`@ApiTags`, tag en `src/swagger.ts`), tests y el registro en `AppModule`.
 
-**Fuera (futuro):** paginación y filtros en `findAll` (por `clientId`, `companyId`, `status` o rango de `serviceDate`), filtrado por tenant (`companyId` del usuario autenticado), autenticación/autorización, borrado lógico (el modelo no tiene `active`), enum o máquina de estados para `status`, crear la orden junto con sus líneas (`OrderEntry`) en una sola petición, incluir líneas o cliente en las respuestas, y generar o reprogramar los `Reminder` de la orden cuando cambia `serviceDate`.
+**Fuera (futuro):** paginación y filtros en `findAll` (por `clientId`, `companyId`, `status` o rango de `serviceDate`), filtrado por tenant (`companyId` del usuario autenticado), autenticación/autorización, borrado lógico (el modelo no tiene `active`), enum o máquina de estados para `status`, crear la orden junto con sus líneas (`OrderEntry`) en una sola petición e incluir las líneas en `findOne` (**cubierto por [10 — maestro-detalle](./10-order-header-master-detail.md)**), incluir el cliente en las respuestas, y generar o reprogramar los `Reminder` de la orden cuando cambia `serviceDate`.
 
 ## Modelo
 

@@ -52,6 +52,7 @@ model OrderHeader {
   companyId String?
   serviceDate DateTime
   status    String
+  entries   OrderEntry[]
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }

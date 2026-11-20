@@ -437,6 +437,21 @@
                   "model": "Company",
                   "namespace": "public"
                 }
+              },
+              "entries": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "orderId"
+                  ]
+                },
+                "to": {
+                  "model": "OrderEntry",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {

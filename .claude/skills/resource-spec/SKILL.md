@@ -8,7 +8,7 @@ argument-hint: <Modelo>
 
 Escribe el spec para implementar el recurso CRUD de **un** modelo del contract y lleva el control en el roadmap.
 
-**Esta skill solo escribe documentación.** Crea o edita únicamente `docs/specs/NN-resource-<kebab>.md` y `docs/specs/00-roadmap.md`. No ejecuta `nest g resource` ni toca `src/`: eso lo hace quien implementa el spec. Todo spec de recurso debe incluir el paso de **actualizar la documentación Swagger** (ver *Swagger (OpenAPI)*), para que cada recurso nuevo quede documentado en `/docs` al implementarse.
+**Esta skill solo escribe documentación.** Crea o edita únicamente `docs/specs/NN-resource-<kebab>.md` (o `docs/specs/NN-<kebab>-master-detail.md`, ver *Maestro-detalle*) y `docs/specs/00-roadmap.md`. No ejecuta `nest g resource` ni toca `src/`: eso lo hace quien implementa el spec. Todo spec de recurso debe incluir el paso de **actualizar la documentación Swagger** (ver *Swagger (OpenAPI)*), para que cada recurso nuevo quede documentado en `/docs` al implementarse.
 
 Argumento: `$ARGUMENTS` (nombre del modelo).
 
@@ -32,6 +32,7 @@ Argumento: `$ARGUMENTS` (nombre del modelo).
 - **El modelo en el contract:** cada campo con su tipo, `?`, `@unique`, `@default`, `@onCreate`, `temporal.UpdatedAt`, las relaciones (`@relation(fields: [xId], references: [id])`) y las listas inversas (`users User[]`).
 - **Dependencias:** cada modelo al que apunta un FK, con su estado en el roadmap.
 - **Modelos que dependen de este:** los que tienen un FK hacia él. Sirve para la nota sobre borrado en *Notas*.
+- **¿Maestro-detalle?** Revisa la tabla *Relaciones maestro-detalle* del roadmap. Si el modelo es el **detalle** de un maestro (p. ej. `OrderEntry` de `OrderHeader`), el spec menciona en *Notas* que el maestro también crea y reemplaza estas líneas, y que un campo nuevo del detalle debe llegar al DTO anidado del maestro. Si piden que el modelo cree sus hijos en la misma petición, aplica *Maestro-detalle*.
 - **¿Tiene campo `active`?** Si el modelo declara `active Boolean`, `findAll` debe filtrar por `active: true` (ver *Service*).
 - **Referencia:** `src/company/` y `src/user/` (module, controller, service, dto). Son la base de estructura, con las correcciones de *Reglas del spec*.
 - **Swagger:** lee `src/swagger.ts` (los `.addTag(...)` actuales) y `docs/specs/05-openapi-swagger.md` (*Reglas para recursos nuevos*).
@@ -146,6 +147,24 @@ Usa el del scaffold. `nest g resource` lo registra en `AppModule`; el spec pide 
 
 **Controller:** el service se sustituye por un objeto de `vi.fn()` con `{ provide: <Model>Service, useValue: ... }`. Se verifica que cada endpoint delega con los argumentos correctos.
 
+### Maestro-detalle
+
+Aplica cuando piden que un recurso guarde sus hijos en la misma petición ("crear la orden con sus líneas", "maestro-detalle", "en una transacción"). Es un spec aparte sobre un recurso ya `Implementado`: `docs/specs/NN-<kebab>-master-detail.md`, con la base en el spec del maestro y del detalle. Referencia completa: `docs/specs/10-order-header-master-detail.md` e implementación en `src/order-header/`.
+
+El spec **debe** pedir:
+
+1. **Contract:** la lista inversa en el maestro (`entries OrderEntry[]`). Es solo de dominio (el FK ya está en el detalle): tras `npm run contract:emit`, `storageHash` de `src/prisma/contract.json` debe seguir igual al de `migrations/app/refs/db.json` (sin migración). Habilita `.include('<relación>')`.
+2. **DTO anidado** `src/<maestro>/dto/<maestro>-<detalle-singular>.dto.ts` (p. ej. `OrderHeaderEntryDto`): los campos del `Create<Detalle>Dto` **sin** el FK al maestro (lo asigna el service), con el mismo mapeo de decoradores. En `Create<Maestro>Dto`: `@IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => <Dto>)` (`Type` de `class-transformer`). `Update<Maestro>Dto` no cambia: `PartialType` la vuelve opcional y conserva `@ArrayMinSize(1)`. Sin `@Type`, el `ValidationPipe` global no valida las líneas ni rechaza campos extra.
+3. **Transacción** en `create` y `update`: `db.transaction(async (tx) => { const orm = tx.orm.public; ... })`. Commit si el callback termina, rollback si lanza. **Dentro, todas las consultas van por `tx`, nunca por `db`.** El `try/catch` + `handleError` queda fuera, envolviendo la transacción.
+4. **`type Orm = typeof db.orm.public`** y `assertReferencesExist(orm: Orm, dto)` recibiendo `tx.orm.public`; valida también cada FK distinto de las líneas (p. ej. `serviceId` → `BadRequestException(\`Service ${id} does not exist\`)`).
+5. **Líneas en secuencia**, no `Promise.all` (una transacción usa una conexión; el primer fallo corta el resto), en un helper privado `create<Detalles>(orm, <maestro>Id, lines)`. Pasar los campos explícitos (`{ serviceId: serviceId ?? null, quantity, orderId }`), no `{ ...line }`: el lint avisa del spread de instancias de clase (`no-misused-spread`).
+6. **`update`:** excepción a la regla 2 de *Service*: el 404 se comprueba **dentro** de la transacción con `orm.<Maestro>.whereUnique({ id }).first()` (no `this.findOne`, que usa `db`). Si el DTO trae campos de cabecera, `update`; si no, se usa la cabecera leída. Si `<relación> !== undefined`: **reemplazo total** con `orm.<Detalle>.where({ <fk>: id }).deleteAll()` y crear las nuevas. Devolver `{ ...header, <relación>: await orm.<Detalle>.where({ <fk>: id }).all() }`.
+7. **`findOne`:** `db.orm.public.<Maestro>.where({ id }).include('<relación>').first()`. `findAll` y `remove` no cambian (cascada en `remove`, `include` en `findAll` y sincronizar por `id` quedan en *Fuera (futuro)*).
+8. **Controller:** sin cambios de código; JSDoc de `create`, `findOne` y `update` mencionando las líneas y el reemplazo.
+9. **Tests:** al mock de `db` se añaden el detalle (`create`, `where → { deleteAll, all }`), los modelos de los FK de las líneas, `include → { first }` en el `where` del maestro y `transaction: vi.fn(async (fn) => fn({ orm }))`. Casos: crea cabecera + N líneas con el id del maestro; FK de línea inexistente → 400 sin crear la cabecera; fallo de la 2.ª línea → `InternalServerErrorException` y el callback rechazado (`transaction.mock.results[0].value`); `update` sin la relación no toca el detalle; con ella, `deleteAll` antes de crear; 404 sin escribir nada; `findOne` llama a `include`.
+10. **Roadmap:** en la fila del maestro, `Spec` → `[base](...) · [NN](./NN-<kebab>-master-detail.md)`; fila nueva en *Relaciones maestro-detalle*. En los specs del maestro y del detalle, marcar el punto de *Fuera (futuro)* como cubierto.
+11. **Skills:** si el patrón cambia, actualizar esta sección y la de `resource-sync`.
+
 ### Otras notas que el spec debe incluir
 
 - **Validación:** `src/main.ts` ya tiene un `ValidationPipe` global con `whitelist` y `forbidNonWhitelisted`, así que un campo que no esté en el DTO responde 400.
@@ -174,9 +193,14 @@ Usa el del scaffold. `nest g resource` lo registra en `AppModule`; el spec pide 
 - **Parcial**: existe código, pero el CRUD no está completo.
 - **Implementado**: CRUD completo con tests. Lo marca quien implementa el spec, en el último paso.
 
+## Relaciones maestro-detalle
+
+| Maestro | Relación | Detalle | Spec |
+|---|---|---|---|
+
 ## Pendientes transversales
 
 - ...
 ```
 
-Al actualizar el roadmap, no borres las notas que haya entre paréntesis en `Estado`, ni las entradas de *Pendientes transversales*.
+Al actualizar el roadmap, no borres las notas que haya entre paréntesis en `Estado`, ni las entradas de *Relaciones maestro-detalle* o de *Pendientes transversales*.

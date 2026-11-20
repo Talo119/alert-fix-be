@@ -351,7 +351,8 @@ export namespace Models {
     updatedAt: FieldOutputTypes['public']['OrderHeader']['updatedAt'];
     client: public_Client | null;
     company: public_Company | null;
-    readonly [RelationKeys]?: 'client' | 'company';
+    entries: public_OrderEntry[];
+    readonly [RelationKeys]?: 'client' | 'company' | 'entries';
   };
   export type public_Reminder = {
     createdAt: FieldOutputTypes['public']['Reminder']['createdAt'];
@@ -1270,6 +1271,17 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['companyId'];
                   readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly entries: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'OrderEntry';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['orderId'];
                 };
               };
             };

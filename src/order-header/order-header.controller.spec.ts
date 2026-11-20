@@ -32,6 +32,7 @@ describe('OrderHeaderController', () => {
     const dto = {
       serviceDate: '2026-12-01T14:00:00.000Z',
       status: 'SCHEDULED',
+      entries: [{ quantity: 2 }],
     };
     service.create.mockResolvedValue(record);
     await expect(controller.create(dto)).resolves.toEqual(record);

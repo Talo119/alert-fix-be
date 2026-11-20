@@ -18,7 +18,7 @@ import { UpdateOrderHeaderDto } from './dto/update-order-header.dto.js';
 export class OrderHeaderController {
   constructor(private readonly orderHeaderService: OrderHeaderService) {}
 
-  /** Crea una orden de mantenimiento. */
+  /** Crea una orden con sus líneas, en una sola transacción. */
   @Post()
   create(@Body() createOrderHeaderDto: CreateOrderHeaderDto) {
     return this.orderHeaderService.create(createOrderHeaderDto);
@@ -30,13 +30,13 @@ export class OrderHeaderController {
     return this.orderHeaderService.findAll();
   }
 
-  /** Obtiene una orden por id. */
+  /** Obtiene una orden por id, con sus líneas. */
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.orderHeaderService.findOne(id);
   }
 
-  /** Actualiza una orden. */
+  /** Actualiza una orden; si se envía `entries`, reemplaza todas sus líneas. */
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,

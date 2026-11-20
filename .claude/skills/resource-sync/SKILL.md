@@ -19,6 +19,8 @@ Argumento: `$ARGUMENTS` (nombre del modelo, opcional).
 
 Procesa cada modelo por separado (pasos 2 a 7).
 
+**Maestro-detalle:** consulta la tabla *Relaciones maestro-detalle* de `docs/specs/00-roadmap.md`. Si el modelo es el **detalle** de un maestro (p. ej. `OrderEntry` → `OrderHeader.entries`), además de su propio recurso sincroniza el maestro (paso 7b). Si es el **maestro**, ten en cuenta que su service trabaja dentro de `db.transaction` (ver paso 5).
+
 ### 2. Comprobar que el recurso existe
 
 Recurso = el modelo en kebab-case singular (`OrderHeader` → `src/order-header/`). Lee completos `dto/create-<kebab>.dto.ts`, `dto/update-<kebab>.dto.ts`, `<kebab>.service.ts`, `<kebab>.controller.ts` y sus `.spec.ts`.
@@ -63,6 +65,8 @@ Según el tipo de cada propiedad nueva. Toma de referencia `src/client/client.se
 | `DateTime` / `DateTime?` | Desestructurar el campo y convertir con `new Date(...)`. En `create`: `{ ...rest, campo: new Date(campo) }` (si es opcional, usa el spread condicional). En `update`, siempre condicional: `...(campo !== undefined && { campo: new Date(campo) })`. Si ya hay otro campo fecha desestructurado, agrégalo a la misma desestructuración. |
 | `active Boolean` (el modelo no lo tenía) | `findAll` pasa de `.all()` a `.where({ active: true }).all()`. `findOne`, `update` y `remove` no filtran. |
 
+**Si el service es maestro-detalle** (usa `db.transaction`, como `src/order-header/order-header.service.ts`): dentro del callback todas las consultas van por `orm` (`tx.orm.public`), nunca por `db`; las comprobaciones de FK van en `assertReferencesExist(orm, dto)`, que ya recibe `orm`; y en `update` el 404 se comprueba dentro de la transacción, no con `this.findOne`. La desestructuración de `create`/`update` ya separa la relación (`const { serviceDate, entries, ...rest } = dto`); agrega ahí los campos fecha nuevos.
+
 Mantén las reglas del resto del service: todo dentro del `try`, errores por `handleError`, `await` en cada promesa (lint trata `no-floating-promises` como error), nunca `db.close()`. Si el service no tiene `handleError` ni `try/catch` (patrón viejo, como `src/user/user.service.ts`), sigue el estilo que ya tiene para el cambio mínimo y menciónalo en el reporte; no lo refactorices.
 
 ### 6. Controller
@@ -85,12 +89,21 @@ En `<kebab>.service.spec.ts`:
 
 En `<kebab>.controller.spec.ts` solo cambia algo si un fixture deja de compilar con el DTO nuevo.
 
+### 7b. Maestro del detalle (solo si el modelo es detalle)
+
+Cada propiedad nueva del detalle, **salvo el FK al maestro**, se lleva también al maestro:
+
+- **DTO anidado** (`src/<maestro>/dto/<maestro>-<detalle-singular>.dto.ts`, p. ej. `OrderHeaderEntryDto`): misma propiedad con los mismos decoradores que en `Create<Detalle>Dto`.
+- **Service del maestro:** el helper que crea las líneas (`createEntries`) pasa los campos explícitos, así que agrega la propiedad ahí (opcional → `campo: campo ?? null`; fecha → `new Date(...)`). Si es FK, valídalo en `assertReferencesExist(orm, dto)` del maestro como `serviceId`: cada id distinto de las líneas, contra `orm.<Ref>`.
+- **Tests del maestro:** agrega la propiedad a los fixtures de líneas y ajusta las expectativas de `OrderEntry.create` (o el detalle que sea); FK nuevo → mock del modelo referenciado y caso 400 sin crear la cabecera.
+- **Spec maestro-detalle** (columna `Spec` de *Relaciones maestro-detalle*): actualiza el DTO anidado.
+
 ### 8. Verificar
 
 En este orden:
 
 1. Si `src/prisma/contract.json` / `contract.d.ts` no reflejan el campo (búscalo con `grep`), ejecuta `npm run contract:emit`. Sin esto los tipos de `db.orm.public.<Model>` no conocen la propiedad.
-2. `npx vitest run src/<kebab>/`
+2. `npx vitest run src/<kebab>/` (y `src/<maestro>/` si hubo paso 7b)
 3. `npm run lint`
 4. `npm run build` (comprueba tipos)
 5. `npm run format` y revisa que solo haya tocado los archivos de esta tarea.

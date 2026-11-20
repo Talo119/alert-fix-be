@@ -21,7 +21,7 @@ Hoy no existe `src/order-entry/` ni un endpoint para añadir líneas a una orden
 
 **Dentro:** module, controller, service, DTOs, documentación Swagger (`@ApiTags`, tag en `src/swagger.ts`), tests y el registro en `AppModule`.
 
-**Fuera (futuro):** paginación y filtros en `findAll` (p. ej. `GET /order-entry?orderId=...` o una ruta anidada `GET /order-header/:id/entries`), filtrado por tenant (`companyId` del usuario autenticado), autenticación/autorización, borrado lógico (el modelo no tiene `active`), crear la orden junto con sus líneas en una sola petición, incluir el servicio o la orden en las respuestas, precios o totales por línea, y evitar líneas duplicadas (mismo `orderId` + `serviceId`).
+**Fuera (futuro):** paginación y filtros en `findAll` (p. ej. `GET /order-entry?orderId=...` o una ruta anidada `GET /order-header/:id/entries`), filtrado por tenant (`companyId` del usuario autenticado), autenticación/autorización, borrado lógico (el modelo no tiene `active`), crear la orden junto con sus líneas en una sola petición (**cubierto por [10 — maestro-detalle](./10-order-header-master-detail.md)**), incluir el servicio o la orden en las respuestas, precios o totales por línea, y evitar líneas duplicadas (mismo `orderId` + `serviceId`).
 
 ## Modelo
 
