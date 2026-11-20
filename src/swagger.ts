@@ -24,6 +24,7 @@ export function setupSwagger(app: INestApplication): void {
     )
     .setVersion(process.env.npm_package_version ?? '1.0')
     .addTag('company')
+    .addTag('client')
     .addTag('user')
     .addTag('reminder')
     .build();

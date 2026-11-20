@@ -9,6 +9,7 @@ import { createPostgresBackend } from 'bullmq';
 import { bullmqPostgresConnection } from './queue/postgres-connection.js';
 import { UserModule } from './user/user.module.js';
 import { CompanyModule } from './company/company.module.js';
+import { ClientModule } from './client/client.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -34,6 +35,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ReminderModule,
     UserModule,
     CompanyModule,
+    ClientModule,
   ],
   controllers: [AppController],
   providers: [AppService],

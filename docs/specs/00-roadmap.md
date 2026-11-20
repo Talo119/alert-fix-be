@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | 1 | Company | `company` | — | Implementado | [04](./04-resource-company.md) |
 | 2 | User | `user` | Company | Implementado | — |
-| 3 | Client | `client` | Company | Pendiente | — |
+| 3 | Client | `client` | Company | Implementado | [06](./06-resource-client.md) |
 | 4 | Service | `service` | Company | Pendiente | — |
 | 5 | OrderHeader | `order-header` | Client, Company | Pendiente | — |
 | 6 | OrderEntry | `order-entry` | OrderHeader, Service | Pendiente | — |
