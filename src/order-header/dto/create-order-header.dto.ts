@@ -1,14 +1,15 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
   IsDateString,
-  IsNotEmpty,
+  IsIn,
   IsOptional,
-  IsString,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
+import { ORDER_STATUSES, type OrderStatus } from '../order-status.js';
 import { OrderHeaderEntryDto } from './order-header-entry.dto.js';
 
 export class CreateOrderHeaderDto {
@@ -24,10 +25,10 @@ export class CreateOrderHeaderDto {
   @IsDateString()
   serviceDate: string;
 
-  /** Estado de la orden. Valor libre por ahora (sin enum). */
-  @IsString()
-  @IsNotEmpty()
-  status: string;
+  /** Estado de la orden: `OPEN`, `COMPLETED` o `CANCELLED`. */
+  @ApiProperty({ enum: ORDER_STATUSES })
+  @IsIn(ORDER_STATUSES)
+  status: OrderStatus;
 
   /** Líneas de la orden (servicio + cantidad). Al menos una. */
   @IsArray()

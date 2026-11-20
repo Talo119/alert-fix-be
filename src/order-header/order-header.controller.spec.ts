@@ -1,13 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderHeaderController } from './order-header.controller.js';
 import { OrderHeaderService } from './order-header.service.js';
+import { OrderStatus } from './order-status.js';
 
 describe('OrderHeaderController', () => {
   const id = '6f1c2b1e-4c8a-4f5e-9a51-3b0b9d5f2a10';
   const record = {
     id,
     serviceDate: new Date('2026-12-01T14:00:00.000Z'),
-    status: 'SCHEDULED',
+    status: OrderStatus.OPEN,
   };
   const service = {
     create: vi.fn(),
@@ -31,7 +32,7 @@ describe('OrderHeaderController', () => {
   it('create delegates the DTO', async () => {
     const dto = {
       serviceDate: '2026-12-01T14:00:00.000Z',
-      status: 'SCHEDULED',
+      status: OrderStatus.OPEN,
       entries: [{ quantity: 2 }],
     };
     service.create.mockResolvedValue(record);
@@ -52,7 +53,7 @@ describe('OrderHeaderController', () => {
   });
 
   it('update delegates the id and DTO', async () => {
-    const dto = { status: 'DONE' };
+    const dto = { status: OrderStatus.COMPLETED };
     service.update.mockResolvedValue({ ...record, ...dto });
     await expect(controller.update(id, dto)).resolves.toEqual({
       ...record,

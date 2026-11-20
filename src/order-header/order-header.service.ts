@@ -10,6 +10,7 @@ import { db } from '../prisma/db.js';
 import { CreateOrderHeaderDto } from './dto/create-order-header.dto.js';
 import { OrderHeaderEntryDto } from './dto/order-header-entry.dto.js';
 import { UpdateOrderHeaderDto } from './dto/update-order-header.dto.js';
+import { OrderStatus } from './order-status.js';
 
 /** `db.orm.public` o `tx.orm.public`: la misma API dentro y fuera de una transacción. */
 type Orm = typeof db.orm.public;
@@ -42,7 +43,10 @@ export class OrderHeaderService {
 
   async findAll() {
     try {
-      return await db.orm.public.OrderHeader.all();
+      // Los GET no devuelven órdenes canceladas.
+      return await db.orm.public.OrderHeader.where((o) =>
+        o.status.neq(OrderStatus.CANCELLED),
+      ).all();
     } catch (error) {
       this.handleError('Failed to fetch orders', error);
     }
@@ -52,6 +56,7 @@ export class OrderHeaderService {
     try {
       // Cada línea trae su servicio (solo id, nombre y descripción).
       const order = await db.orm.public.OrderHeader.where({ id })
+        .where((o) => o.status.neq(OrderStatus.CANCELLED))
         .include('entries', (entries) =>
           entries.include('service', (service) =>
             service.select('id', 'name', 'description'),
@@ -107,7 +112,11 @@ export class OrderHeaderService {
 
   async remove(id: string) {
     try {
-      await this.findOne(id);
+      // Sin `findOne`: una orden cancelada también se puede borrar.
+      const existing = await db.orm.public.OrderHeader.whereUnique({
+        id,
+      }).first();
+      if (!existing) throw new NotFoundException(`OrderHeader ${id} not found`);
       const order = await db.orm.public.OrderHeader.where({ id }).delete();
       this.logger.log(`Removed order ${id}`);
       return order;

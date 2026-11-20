@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderHeaderService } from './order-header.service.js';
+import { OrderStatus } from './order-status.js';
 
 const {
   unique,
@@ -25,12 +26,16 @@ const {
 } = vi.hoisted(() => {
   const unique = { first: vi.fn(), update: vi.fn() };
   const included = { first: vi.fn() };
-  const filtered = { delete: vi.fn(), include: vi.fn(() => included) };
+  const filtered: Record<string, ReturnType<typeof vi.fn>> = {
+    all: vi.fn(),
+    delete: vi.fn(),
+    include: vi.fn(() => included),
+  };
+  filtered.where = vi.fn(() => filtered);
   const orderModel = {
     create: vi.fn(),
-    all: vi.fn(),
     whereUnique: vi.fn(() => unique),
-    where: vi.fn(() => filtered),
+    where: vi.fn((_filter: unknown) => filtered),
   };
   const entryFiltered = { deleteAll: vi.fn(), all: vi.fn() };
   const entryModel = { create: vi.fn(), where: vi.fn(() => entryFiltered) };
@@ -89,7 +94,7 @@ describe('OrderHeaderService', () => {
     clientId,
     companyId,
     serviceDate: new Date(serviceDate),
-    status: 'SCHEDULED',
+    status: OrderStatus.OPEN,
   };
   const entries = [
     { serviceId: serviceA, quantity: 2 },
@@ -128,7 +133,7 @@ describe('OrderHeaderService', () => {
         clientId,
         companyId,
         serviceDate,
-        status: 'SCHEDULED',
+        status: OrderStatus.OPEN,
         entries,
       };
 
@@ -145,7 +150,7 @@ describe('OrderHeaderService', () => {
         clientId,
         companyId,
         serviceDate: expect.any(Date),
-        status: 'SCHEDULED',
+        status: OrderStatus.OPEN,
       });
       const [data] = orderModel.create.mock.calls[0] as [{ serviceDate: Date }];
       expect(data.serviceDate.toISOString()).toBe(serviceDate);
@@ -166,7 +171,7 @@ describe('OrderHeaderService', () => {
 
       await service.create({
         serviceDate,
-        status: 'SCHEDULED',
+        status: OrderStatus.OPEN,
         entries: [
           { serviceId: serviceA, quantity: 1 },
           { serviceId: serviceA, quantity: 3 },
@@ -183,7 +188,7 @@ describe('OrderHeaderService', () => {
       entryModel.create.mockResolvedValue(line);
       const dto = {
         serviceDate,
-        status: 'SCHEDULED',
+        status: OrderStatus.OPEN,
         entries: [{ quantity: 1 }],
       };
 
@@ -205,7 +210,12 @@ describe('OrderHeaderService', () => {
       clientUnique.first.mockResolvedValue(null);
 
       await expect(
-        service.create({ clientId, serviceDate, status: 'SCHEDULED', entries }),
+        service.create({
+          clientId,
+          serviceDate,
+          status: OrderStatus.OPEN,
+          entries,
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(orderModel.create).not.toHaveBeenCalled();
     });
@@ -217,7 +227,7 @@ describe('OrderHeaderService', () => {
         service.create({
           companyId,
           serviceDate,
-          status: 'SCHEDULED',
+          status: OrderStatus.OPEN,
           entries,
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -228,7 +238,7 @@ describe('OrderHeaderService', () => {
       serviceUnique.first.mockResolvedValue(null);
 
       await expect(
-        service.create({ serviceDate, status: 'SCHEDULED', entries }),
+        service.create({ serviceDate, status: OrderStatus.OPEN, entries }),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(orderModel.create).not.toHaveBeenCalled();
       expect(entryModel.create).not.toHaveBeenCalled();
@@ -242,7 +252,7 @@ describe('OrderHeaderService', () => {
         .mockRejectedValueOnce(new Error('connection reset'));
 
       await expect(
-        service.create({ serviceDate, status: 'SCHEDULED', entries }),
+        service.create({ serviceDate, status: OrderStatus.OPEN, entries }),
       ).rejects.toBeInstanceOf(InternalServerErrorException);
       expect(entryModel.create).toHaveBeenCalledTimes(2);
       // The callback rejected: that rejection is what makes Prisma roll back.
@@ -251,12 +261,24 @@ describe('OrderHeaderService', () => {
     });
   });
 
-  it('lists all orders', async () => {
-    orderModel.all.mockResolvedValue([record]);
+  /** Ejecuta un predicado de `where` y devuelve el valor pasado a `status.neq`. */
+  const neqValueOf = (predicate: unknown) => {
+    const neq = vi.fn((_value: unknown) => 'expr');
+    expect((predicate as (o: unknown) => unknown)({ status: { neq } })).toBe(
+      'expr',
+    );
+    return neq.mock.calls[0]?.[0];
+  };
+
+  it('lists the orders that are not cancelled', async () => {
+    filtered.all.mockResolvedValue([record]);
 
     await expect(service.findAll()).resolves.toEqual([record]);
-    expect(orderModel.all).toHaveBeenCalled();
-    expect(orderModel.where).not.toHaveBeenCalled();
+    expect(orderModel.where).toHaveBeenCalledWith(expect.any(Function));
+    expect(neqValueOf(orderModel.where.mock.calls[0]?.[0])).toBe(
+      OrderStatus.CANCELLED,
+    );
+    expect(filtered.all).toHaveBeenCalled();
   });
 
   describe('findOne', () => {
@@ -272,6 +294,9 @@ describe('OrderHeaderService', () => {
 
       await expect(service.findOne(id)).resolves.toEqual(withEntries);
       expect(orderModel.where).toHaveBeenCalledWith({ id });
+      expect(neqValueOf(filtered.where.mock.calls[0]?.[0])).toBe(
+        OrderStatus.CANCELLED,
+      );
       expect(filtered.include).toHaveBeenCalledWith(
         'entries',
         expect.any(Function),
@@ -330,18 +355,22 @@ describe('OrderHeaderService', () => {
     });
 
     it('does not touch serviceDate when the DTO omits it', async () => {
-      const updated = { ...record, status: 'DONE' };
+      const updated = { ...record, status: OrderStatus.COMPLETED };
       unique.first.mockResolvedValue(record);
       unique.update.mockResolvedValue(updated);
       entryFiltered.all.mockResolvedValue([]);
 
-      await expect(service.update(id, { status: 'DONE' })).resolves.toEqual({
+      await expect(
+        service.update(id, { status: OrderStatus.COMPLETED }),
+      ).resolves.toEqual({
         ...updated,
         entries: [],
       });
       expect(clientModel.whereUnique).not.toHaveBeenCalled();
       expect(companyModel.whereUnique).not.toHaveBeenCalled();
-      expect(unique.update).toHaveBeenCalledWith({ status: 'DONE' });
+      expect(unique.update).toHaveBeenCalledWith({
+        status: OrderStatus.COMPLETED,
+      });
       const [data] = unique.update.mock.calls[0] as [object];
       expect(data).not.toHaveProperty('serviceDate');
     });
@@ -403,7 +432,7 @@ describe('OrderHeaderService', () => {
       unique.first.mockResolvedValue(null);
 
       await expect(
-        service.update(id, { status: 'DONE', entries }),
+        service.update(id, { status: OrderStatus.COMPLETED, entries }),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(unique.update).not.toHaveBeenCalled();
       expect(entryFiltered.deleteAll).not.toHaveBeenCalled();
@@ -412,17 +441,19 @@ describe('OrderHeaderService', () => {
   });
 
   describe('remove', () => {
-    it('removes the order', async () => {
-      included.first.mockResolvedValue(record);
-      filtered.delete.mockResolvedValue(record);
+    it('removes the order, even when it is cancelled', async () => {
+      const cancelled = { ...record, status: OrderStatus.CANCELLED };
+      unique.first.mockResolvedValue(cancelled);
+      filtered.delete.mockResolvedValue(cancelled);
 
-      await expect(service.remove(id)).resolves.toEqual(record);
+      await expect(service.remove(id)).resolves.toEqual(cancelled);
+      expect(orderModel.whereUnique).toHaveBeenCalledWith({ id });
       expect(orderModel.where).toHaveBeenCalledWith({ id });
       expect(filtered.delete).toHaveBeenCalled();
     });
 
     it('throws NotFoundException when missing', async () => {
-      included.first.mockResolvedValue(null);
+      unique.first.mockResolvedValue(null);
 
       await expect(service.remove(id)).rejects.toBeInstanceOf(
         NotFoundException,
@@ -432,7 +463,7 @@ describe('OrderHeaderService', () => {
   });
 
   it('turns database errors into InternalServerErrorException', async () => {
-    orderModel.all.mockRejectedValue(new Error('connection refused'));
+    filtered.all.mockRejectedValue(new Error('connection refused'));
     await expect(service.findAll()).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
