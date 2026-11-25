@@ -51,6 +51,7 @@ const reminder = (
     companyId: null,
     // 09:00 en Tegucigalpa (UTC-6)
     serviceDate: new Date('2026-11-25T15:00:00Z'),
+    nextServiceDate: null,
     status: 'OPEN',
     createdAt: new Date('2026-11-01T00:00:00Z'),
     updatedAt: new Date('2026-11-01T00:00:00Z'),

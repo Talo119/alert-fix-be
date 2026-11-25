@@ -25,6 +25,11 @@ export class CreateOrderHeaderDto {
   @IsDateString()
   serviceDate: string;
 
+  /** Fecha y hora del próximo servicio, en ISO 8601 (p. ej. `2027-03-01T14:00:00.000Z`). `null` la quita. */
+  @IsOptional()
+  @IsDateString()
+  nextServiceDate?: string;
+
   /** Estado de la orden: `OPEN`, `COMPLETED` o `CANCELLED`. */
   @ApiProperty({ enum: ORDER_STATUSES })
   @IsIn(ORDER_STATUSES)

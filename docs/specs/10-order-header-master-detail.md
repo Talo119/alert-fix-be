@@ -87,13 +87,14 @@ type Orm = typeof db.orm.public;
 **`create(dto)`**:
 
 ```ts
-const { serviceDate, entries, ...rest } = dto;
+const { serviceDate, nextServiceDate, entries, ...rest } = dto;
 const order = await db.transaction(async (tx) => {
   const orm = tx.orm.public;
   await this.assertReferencesExist(orm, dto);
   const header = await orm.OrderHeader.create({
     ...rest,
     serviceDate: new Date(serviceDate),
+    ...(nextServiceDate && { nextServiceDate: new Date(nextServiceDate) }),
   });
   const created = await this.createEntries(orm, header.id, entries);
   return { ...header, entries: created };
@@ -108,7 +109,7 @@ return order;
 
 1. `orm.OrderHeader.whereUnique({ id }).first()` → `NotFoundException` si `null` (dentro de la transacción, no vía `this.findOne`, que usa `db`).
 2. `assertReferencesExist(orm, dto)`.
-3. Si el DTO trae campos de cabecera, `orm.OrderHeader.whereUnique({ id }).update({...})` con la conversión condicional de `serviceDate` de hoy; si no, se usa la cabecera leída en el punto 1.
+3. Si el DTO trae campos de cabecera, `orm.OrderHeader.whereUnique({ id }).update({...})` con la conversión condicional de `serviceDate` y `nextServiceDate` de hoy; si no, se usa la cabecera leída en el punto 1.
 4. Si `entries !== undefined`: `orm.OrderEntry.where({ orderId: id }).deleteAll()` y crear las nuevas con `orderId: id`.
 5. Retornar `{ ...header, entries: await orm.OrderEntry.where({ orderId: id }).all() }`.
 

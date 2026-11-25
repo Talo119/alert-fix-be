@@ -33,6 +33,7 @@ Tomado de `src/prisma/contract.prisma`:
 | `clientId` | `String?` (FK) | no | sí | `@IsOptional() @IsUUID()` |
 | `companyId` | `String?` (FK) | no | sí | `@IsOptional() @IsUUID()` |
 | `serviceDate` | `DateTime` | sí | sí | `@IsDateString()` |
+| `nextServiceDate` | `DateTime?` | no | sí | `@IsOptional() @IsDateString()` |
 | `status` | `String` | sí | sí | `@IsIn(ORDER_STATUSES)`: `OPEN`, `COMPLETED` o `CANCELLED` (`src/order-header/order-status.ts`). Los `GET` (`findAll`, `findOne`) excluyen las `CANCELLED`; `PATCH` y `DELETE` sí las alcanzan. |
 | `createdAt` | `DateTime` | generado | no | — |
 | `updatedAt` | `temporal.UpdatedAt` | generado | no | — |
@@ -93,6 +94,11 @@ export class CreateOrderHeaderDto {
   @IsDateString()
   serviceDate: string;
 
+  /** Fecha y hora del próximo servicio, en ISO 8601 (p. ej. `2027-03-01T14:00:00.000Z`). `null` la quita. */
+  @IsOptional()
+  @IsDateString()
+  nextServiceDate?: string;
+
   /** Estado de la orden. Valor libre por ahora (sin enum). */
   @IsString()
   @IsNotEmpty()
@@ -123,7 +129,7 @@ No se crean más DTOs.
 - En el `catch`, las `HttpException` se relanzan; el resto se loguea y lanza `InternalServerErrorException`.
 - **FKs `clientId` y `companyId`:** como hay dos, la verificación va en un helper privado `assertReferencesExist(dto)`, llamado en `create` y en `update`. Para cada FK presente (truthy) consulta `db.orm.public.Client` / `db.orm.public.Company` con `whereUnique({ id }).first()`; si no existe, `BadRequestException(\`Client ${clientId} does not exist\`)` o `BadRequestException(\`Company ${companyId} does not exist\`)`.
 - **Sin `@unique`:** no hay comprobación de duplicados ni `ConflictException`.
-- **Fechas:** `serviceDate` llega como string; se convierte con `new Date(...)` antes de `create` y, en `update`, solo si el DTO lo trae (para no pisar la fecha con `Invalid Date`).
+- **Fechas:** `serviceDate` llega como string; se convierte con `new Date(...)` antes de `create` y, en `update`, solo si el DTO lo trae (para no pisar la fecha con `Invalid Date`). `nextServiceDate` (opcional) se convierte igual; en `update`, `null` quita la fecha (`@IsOptional()` lo deja pasar y `new Date(null)` guardaría 1970).
 - **`findAll`** usa `all()`: el modelo no tiene `active`.
 
 ```ts
@@ -146,9 +152,11 @@ export class OrderHeaderService {
   async create(createOrderHeaderDto: CreateOrderHeaderDto) {
     try {
       await this.assertReferencesExist(createOrderHeaderDto);
+      const { serviceDate, nextServiceDate, ...rest } = createOrderHeaderDto;
       const order = await db.orm.public.OrderHeader.create({
-        ...createOrderHeaderDto,
-        serviceDate: new Date(createOrderHeaderDto.serviceDate),
+        ...rest,
+        serviceDate: new Date(serviceDate),
+        ...(nextServiceDate && { nextServiceDate: new Date(nextServiceDate) }),
       });
       this.logger.log(`Created order ${order.id}`);
       return order;
@@ -179,10 +187,13 @@ export class OrderHeaderService {
     try {
       await this.findOne(id);
       await this.assertReferencesExist(updateOrderHeaderDto);
-      const { serviceDate, ...rest } = updateOrderHeaderDto;
+      const { serviceDate, nextServiceDate, ...rest } = updateOrderHeaderDto;
       const order = await db.orm.public.OrderHeader.whereUnique({ id }).update({
         ...rest,
         ...(serviceDate !== undefined && { serviceDate: new Date(serviceDate) }),
+        ...(nextServiceDate !== undefined && {
+          nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
+        }),
       });
       this.logger.log(`Updated order ${id}`);
       return order;

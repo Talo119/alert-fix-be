@@ -87,6 +87,7 @@ describe('OrderHeaderService', () => {
   const serviceA = '5e7f0000-1234-4abc-8def-0123456789ab';
   const serviceB = '5e7f0001-1234-4abc-8def-0123456789ab';
   const serviceDate = '2026-12-01T14:00:00.000Z';
+  const nextServiceDate = '2027-03-01T14:00:00.000Z';
   const client = { id: clientId, name: 'Ana Pérez', companyId };
   const company = { id: companyId, name: 'Acme', active: true };
   const record = {
@@ -162,6 +163,36 @@ describe('OrderHeaderService', () => {
         ...entries[1],
         orderId: id,
       });
+    });
+
+    it('converts nextServiceDate to Date', async () => {
+      orderModel.create.mockResolvedValue(record);
+      entryModel.create.mockResolvedValue(entryRows[0]);
+
+      await service.create({
+        serviceDate,
+        nextServiceDate,
+        status: OrderStatus.OPEN,
+        entries: [{ quantity: 1 }],
+      });
+      expect(orderModel.create).toHaveBeenCalledWith({
+        serviceDate: new Date(serviceDate),
+        nextServiceDate: new Date(nextServiceDate),
+        status: OrderStatus.OPEN,
+      });
+    });
+
+    it('does not set nextServiceDate when the DTO omits it', async () => {
+      orderModel.create.mockResolvedValue(record);
+      entryModel.create.mockResolvedValue(entryRows[0]);
+
+      await service.create({
+        serviceDate,
+        status: OrderStatus.OPEN,
+        entries: [{ quantity: 1 }],
+      });
+      const [data] = orderModel.create.mock.calls[0] as [object];
+      expect(data).not.toHaveProperty('nextServiceDate');
     });
 
     it('checks each distinct serviceId once', async () => {
@@ -354,7 +385,31 @@ describe('OrderHeaderService', () => {
       expect(entryModel.create).not.toHaveBeenCalled();
     });
 
-    it('does not touch serviceDate when the DTO omits it', async () => {
+    it('converts nextServiceDate to Date', async () => {
+      unique.first.mockResolvedValue(record);
+      unique.update.mockResolvedValue(record);
+      entryFiltered.all.mockResolvedValue(entryRows);
+
+      await service.update(id, { nextServiceDate });
+      expect(unique.update).toHaveBeenCalledWith({
+        nextServiceDate: new Date(nextServiceDate),
+      });
+    });
+
+    it('clears nextServiceDate when the DTO sends null', async () => {
+      unique.first.mockResolvedValue(record);
+      unique.update.mockResolvedValue(record);
+      entryFiltered.all.mockResolvedValue(entryRows);
+      // `@IsOptional()` lets `null` through, although the DTO type does not.
+      const body = { nextServiceDate: null } as unknown as {
+        nextServiceDate?: string;
+      };
+
+      await service.update(id, body);
+      expect(unique.update).toHaveBeenCalledWith({ nextServiceDate: null });
+    });
+
+    it('does not touch the dates when the DTO omits them', async () => {
       const updated = { ...record, status: OrderStatus.COMPLETED };
       unique.first.mockResolvedValue(record);
       unique.update.mockResolvedValue(updated);
@@ -373,6 +428,7 @@ describe('OrderHeaderService', () => {
       });
       const [data] = unique.update.mock.calls[0] as [object];
       expect(data).not.toHaveProperty('serviceDate');
+      expect(data).not.toHaveProperty('nextServiceDate');
     });
 
     it('replaces all entries when the DTO sends them', async () => {

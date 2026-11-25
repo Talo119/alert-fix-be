@@ -377,6 +377,16 @@
                   "kind": "scalar"
                 }
               },
+              "nextServiceDate": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
               "serviceDate": {
                 "nullable": false,
                 "type": {
@@ -467,6 +477,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "nextServiceDate": {
+                  "column": "nextServiceDate"
                 },
                 "serviceDate": {
                   "column": "serviceDate"
@@ -1144,6 +1157,14 @@
                   "dataType": "pg/text",
                   "nullable": false
                 },
+                "nextServiceDate": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
                 "serviceDate": {
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
@@ -1531,7 +1552,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "62cc4fdc86987ec538abdbeaa771c34938108408d9cadbf2a2de4770122d731f"
+    "storageHash": "0ca4b2bb7c6a0c74cc3f676a2201911379a16332874131cff2c4ab0c07e95ba4"
   },
   "execution": {
     "executionHash": "0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884",

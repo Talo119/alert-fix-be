@@ -21,13 +21,17 @@ export class OrderHeaderService {
 
   async create(createOrderHeaderDto: CreateOrderHeaderDto) {
     try {
-      const { serviceDate, entries, ...rest } = createOrderHeaderDto;
+      const { serviceDate, nextServiceDate, entries, ...rest } =
+        createOrderHeaderDto;
       const order = await db.transaction(async (tx) => {
         const orm = tx.orm.public;
         await this.assertReferencesExist(orm, createOrderHeaderDto);
         const header = await orm.OrderHeader.create({
           ...rest,
           serviceDate: new Date(serviceDate),
+          ...(nextServiceDate && {
+            nextServiceDate: new Date(nextServiceDate),
+          }),
         });
         const created = await this.createEntries(orm, header.id, entries);
         return { ...header, entries: created };
@@ -46,7 +50,9 @@ export class OrderHeaderService {
       // Los GET no devuelven órdenes canceladas.
       return await db.orm.public.OrderHeader.where((o) =>
         o.status.neq(OrderStatus.CANCELLED),
-      ).where((order) => order.clientId.eq(clientId)).all();
+      )
+        .where((order) => order.clientId.eq(clientId))
+        .all();
     } catch (error) {
       this.handleError('Failed to fetch orders', error);
     }
@@ -72,7 +78,8 @@ export class OrderHeaderService {
 
   async update(id: string, updateOrderHeaderDto: UpdateOrderHeaderDto) {
     try {
-      const { serviceDate, entries, ...rest } = updateOrderHeaderDto;
+      const { serviceDate, nextServiceDate, entries, ...rest } =
+        updateOrderHeaderDto;
       const order = await db.transaction(async (tx) => {
         const orm = tx.orm.public;
         const existing = await orm.OrderHeader.whereUnique({ id }).first();
@@ -85,6 +92,10 @@ export class OrderHeaderService {
           ...rest,
           ...(serviceDate !== undefined && {
             serviceDate: new Date(serviceDate),
+          }),
+          // `@IsOptional()` deja pasar `null`: quita la fecha.
+          ...(nextServiceDate !== undefined && {
+            nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
           }),
         };
         const header =
