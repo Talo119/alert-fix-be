@@ -2,7 +2,7 @@
 
 > Control de los modelos de `src/prisma/contract.prisma` y su recurso CRUD.
 > Generar el spec de un modelo: `/resource-spec <Modelo>`.
-> Última actualización: 2026-11-20
+> Última actualización: 2026-11-24
 
 | # | Modelo | Recurso | Depende de | Estado | Spec |
 |---|---|---|---|---|---|
@@ -12,7 +12,7 @@
 | 4 | Service | `service` | Company | Implementado | [07](./07-resource-service.md) |
 | 5 | OrderHeader | `order-header` | Client, Company | Implementado | [08](./08-resource-order-header.md) · [10](./10-order-header-master-detail.md) |
 | 6 | OrderEntry | `order-entry` | OrderHeader, Service | Implementado | [09](./09-resource-order-entry.md) |
-| 7 | Reminder | `reminder` | OrderHeader | Parcial (solo `findOne`; el cron, la cola y WhatsApp vienen de los specs 01–03) | [01](./01-reminders-cron.md) · [02](./02-reminders-queue-bullmq.md) · [03](./03-reminders-whatsapp.md) |
+| 7 | Reminder | `reminder` | OrderHeader | Implementado | [11](./11-resource-reminder.md) · [01](./01-reminders-cron.md) · [02](./02-reminders-queue-bullmq.md) · [03](./03-reminders-whatsapp.md) |
 
 ## Estados
 

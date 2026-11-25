@@ -51,6 +51,7 @@ model OrderHeader {
   company   Company?           @relation(fields: [companyId], references: [id])
   companyId String?
   serviceDate DateTime
+  nextServiceDate DateTime?
   status    String
   entries   OrderEntry[]
   createdAt DateTime           @default(now()) @onCreate(now())

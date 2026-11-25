@@ -41,12 +41,12 @@ export class OrderHeaderService {
     }
   }
 
-  async findAll() {
+  async findAll(clientId: string) {
     try {
       // Los GET no devuelven órdenes canceladas.
       return await db.orm.public.OrderHeader.where((o) =>
         o.status.neq(OrderStatus.CANCELLED),
-      ).all();
+      ).where((order) => order.clientId.eq(clientId)).all();
     } catch (error) {
       this.handleError('Failed to fetch orders', error);
     }

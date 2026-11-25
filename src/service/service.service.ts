@@ -27,9 +27,9 @@ export class ServiceService {
     }
   }
 
-  async findAll() {
+  async findAll(companyId: string) {
     try {
-      return await db.orm.public.Service.where({ active: true }).all();
+      return await db.orm.public.Service.where({ active: true, companyId }).all();
     } catch (error) {
       this.handleError('Failed to fetch services', error);
     }
