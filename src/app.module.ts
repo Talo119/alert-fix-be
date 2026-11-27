@@ -13,6 +13,7 @@ import { ClientModule } from './client/client.module.js';
 import { ServiceModule } from './service/service.module.js';
 import { OrderHeaderModule } from './order-header/order-header.module.js';
 import { OrderEntryModule } from './order-entry/order-entry.module.js';
+import { WhatsappWebhookModule } from './whatsapp-webhook/whatsapp-webhook.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -42,6 +43,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ServiceModule,
     OrderHeaderModule,
     OrderEntryModule,
+    WhatsappWebhookModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -6,6 +6,8 @@ import { setupSwagger } from './swagger.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     instrument: ObserveInstrument,
+    // Body crudo para verificar la firma de los webhooks de Meta (spec 13).
+    rawBody: true,
   });
   app.useGlobalPipes(
     new ValidationPipe({

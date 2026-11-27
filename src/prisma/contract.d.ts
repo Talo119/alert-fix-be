@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0c737946c25310ea71659155bd9ca201f94a1b3a8576acec924621edc37ae0d1'>;
+  StorageHashBase<'422e3867ed96e9d23d5b075667a4065995af58de19a94ba7f3ca651f3e2b26b2'>;
 export type ExecutionHash =
   ExecutionHashBase<'0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884'>;
 export type ProfileHash =
@@ -347,6 +347,7 @@ export namespace Models {
     createdAt: FieldOutputTypes['public']['OrderHeader']['createdAt'];
     id: FieldOutputTypes['public']['OrderHeader']['id'];
     nextServiceDate: FieldOutputTypes['public']['OrderHeader']['nextServiceDate'];
+    previousOrderId: FieldOutputTypes['public']['OrderHeader']['previousOrderId'];
     serviceDate: FieldOutputTypes['public']['OrderHeader']['serviceDate'];
     status: FieldOutputTypes['public']['OrderHeader']['status'];
     updatedAt: FieldOutputTypes['public']['OrderHeader']['updatedAt'];
@@ -675,6 +676,12 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
+                readonly previousOrderId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly serviceDate: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
@@ -697,7 +704,7 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [];
+              uniques: readonly [{ readonly columns: readonly ['previousOrderId'] }];
               indexes: readonly [
                 {
                   readonly name: 'OrderHeader_clientId_idx_153a9a49';
@@ -1268,6 +1275,10 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
+              readonly previousOrderId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly serviceDate: {
                 readonly nullable: false;
                 readonly type: {
@@ -1335,6 +1346,7 @@ type ContractBase = Omit<
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly id: { readonly column: 'id' };
                 readonly nextServiceDate: { readonly column: 'nextServiceDate' };
+                readonly previousOrderId: { readonly column: 'previousOrderId' };
                 readonly serviceDate: { readonly column: 'serviceDate' };
                 readonly status: { readonly column: 'status' };
                 readonly updatedAt: { readonly column: 'updatedAt' };

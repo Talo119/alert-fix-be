@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CONFIRMATION_MESSAGE } from './next-service.js';
-import { OrderHeaderService } from './order-header.service.js';
+import {
+  isUniqueViolation,
+  OrderHeaderService,
+} from './order-header.service.js';
 import { OrderStatus } from './order-status.js';
 
 const {
@@ -32,6 +35,7 @@ const {
   const included = { first: vi.fn() };
   const filtered: Record<string, ReturnType<typeof vi.fn>> = {
     all: vi.fn(),
+    first: vi.fn(),
     delete: vi.fn(),
     include: vi.fn(() => included),
   };
@@ -628,6 +632,186 @@ describe('OrderHeaderService', () => {
         NotFoundException,
       );
       expect(filtered.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createFollowUp', () => {
+    const originId = id;
+    const followUpId = 'f0110000-1234-4abc-8def-0123456789ab';
+    const nextServiceDate = new Date('2027-03-01T14:00:00.000Z');
+    const origin = (overrides: object = {}, lines = entryRows) => ({
+      ...record,
+      status: OrderStatus.COMPLETED,
+      nextServiceDate,
+      entries: lines.map((entry) => ({
+        ...entry,
+        service: entry.serviceId ? { id: entry.serviceId, active: true } : null,
+      })),
+      ...overrides,
+    });
+    const followUp = {
+      id: followUpId,
+      clientId,
+      companyId,
+      serviceDate: nextServiceDate,
+      nextServiceDate: null,
+      status: OrderStatus.OPEN,
+      previousOrderId: originId,
+    };
+    /** Error con la forma de `SqlQueryError` de Prisma 8 para `23505`. */
+    const uniqueViolation = () =>
+      Object.assign(new Error('duplicate key value'), {
+        kind: 'sql_query',
+        sqlState: '23505',
+        constraint: 'OrderHeader_previousOrderId_key',
+      });
+
+    it('creates an OPEN order from a COMPLETED one with its entries', async () => {
+      filtered.first.mockResolvedValue(null);
+      included.first.mockResolvedValue(origin());
+      orderModel.create.mockResolvedValue(followUp);
+
+      await expect(service.createFollowUp(originId)).resolves.toEqual({
+        order: followUp,
+        created: true,
+      });
+      expect(transaction).toHaveBeenCalledTimes(1);
+      expect(orderModel.where).toHaveBeenNthCalledWith(1, {
+        previousOrderId: originId,
+      });
+      expect(orderModel.where).toHaveBeenNthCalledWith(2, { id: originId });
+      expect(filtered.include).toHaveBeenCalledWith(
+        'entries',
+        expect.any(Function),
+      );
+      expect(orderModel.create).toHaveBeenCalledWith({
+        clientId,
+        companyId,
+        serviceDate: nextServiceDate,
+        status: OrderStatus.OPEN,
+        previousOrderId: originId,
+      });
+      expect(entryModel.create).toHaveBeenCalledTimes(2);
+      expect(entryModel.create).toHaveBeenNthCalledWith(1, {
+        serviceId: serviceA,
+        quantity: 2,
+        orderId: followUpId,
+      });
+      expect(entryModel.create).toHaveBeenNthCalledWith(2, {
+        serviceId: serviceB,
+        quantity: 1,
+        orderId: followUpId,
+      });
+    });
+
+    it('skips entries of inactive services and copies entries without service', async () => {
+      filtered.first.mockResolvedValue(null);
+      const lines = [
+        ...entryRows,
+        { id: 'e3', orderId: id, serviceId: null, quantity: 4 },
+      ];
+      const ref = origin({}, lines);
+      ref.entries[1] = {
+        ...ref.entries[1],
+        service: { id: serviceB, active: false },
+      };
+      included.first.mockResolvedValue(ref);
+      orderModel.create.mockResolvedValue(followUp);
+
+      await service.createFollowUp(originId);
+      expect(entryModel.create).toHaveBeenCalledTimes(2);
+      expect(entryModel.create).toHaveBeenNthCalledWith(1, {
+        serviceId: serviceA,
+        quantity: 2,
+        orderId: followUpId,
+      });
+      expect(entryModel.create).toHaveBeenNthCalledWith(2, {
+        serviceId: null,
+        quantity: 4,
+        orderId: followUpId,
+      });
+    });
+
+    it('returns null without creating when every service is inactive', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn');
+      filtered.first.mockResolvedValue(null);
+      const ref = origin();
+      ref.entries = ref.entries.map((e) => ({
+        ...e,
+        service: { id: e.serviceId, active: false },
+      }));
+      included.first.mockResolvedValue(ref);
+
+      await expect(service.createFollowUp(originId)).resolves.toBeNull();
+      expect(orderModel.create).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('returns the existing follow-up without creating another', async () => {
+      filtered.first.mockResolvedValue(followUp);
+
+      await expect(service.createFollowUp(originId)).resolves.toEqual({
+        order: followUp,
+        created: false,
+      });
+      expect(included.first).not.toHaveBeenCalled();
+      expect(orderModel.create).not.toHaveBeenCalled();
+    });
+
+    it('treats a unique violation (concurrent webhook) as a duplicate', async () => {
+      filtered.first
+        .mockResolvedValueOnce(null) // dentro de la transacción
+        .mockResolvedValueOnce(followUp); // relectura tras el rollback
+      included.first.mockResolvedValue(origin());
+      orderModel.create.mockRejectedValue(uniqueViolation());
+
+      await expect(service.createFollowUp(originId)).resolves.toEqual({
+        order: followUp,
+        created: false,
+      });
+      expect(entryModel.create).not.toHaveBeenCalled();
+    });
+
+    it('propagates other database errors', async () => {
+      filtered.first.mockRejectedValue(new Error('connection refused'));
+
+      await expect(service.createFollowUp(originId)).rejects.toThrow(
+        'connection refused',
+      );
+    });
+
+    it.each([
+      ['OPEN', { status: OrderStatus.OPEN }],
+      ['CANCELLED', { status: OrderStatus.CANCELLED }],
+      ['without nextServiceDate', { nextServiceDate: null }],
+    ])('returns null when the origin is %s', async (_, overrides) => {
+      filtered.first.mockResolvedValue(null);
+      included.first.mockResolvedValue(origin(overrides));
+
+      await expect(service.createFollowUp(originId)).resolves.toBeNull();
+      expect(orderModel.create).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the origin does not exist', async () => {
+      filtered.first.mockResolvedValue(null);
+      included.first.mockResolvedValue(null);
+
+      await expect(service.createFollowUp(originId)).resolves.toBeNull();
+      expect(orderModel.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isUniqueViolation', () => {
+    it.each([
+      [{ kind: 'sql_query', sqlState: '23505' }, true],
+      [new Error('wrapped', { cause: { sqlState: '23505' } }), true],
+      [{ code: '23505' }, true],
+      [{ sqlState: '23503' }, false],
+      [new Error('other'), false],
+      [null, false],
+      ['23505', false],
+    ])('%o → %s', (error, expected) => {
+      expect(isUniqueViolation(error)).toBe(expected);
     });
   });
 

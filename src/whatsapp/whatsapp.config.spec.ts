@@ -8,6 +8,8 @@ const env = {
   WHATSAPP_CONFIRMATION_TEMPLATE_NAME: 'confirmacion_proximo_servicio',
   WHATSAPP_TEMPLATE_LANG: 'es',
   WHATSAPP_DEFAULT_COUNTRY_CODE: '504',
+  WHATSAPP_APP_SECRET: 'app-secret',
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'verify-token',
 };
 
 describe('loadWhatsappConfig', () => {
@@ -20,6 +22,8 @@ describe('loadWhatsappConfig', () => {
       confirmationTemplateName: 'confirmacion_proximo_servicio',
       templateLang: 'es',
       defaultCountryCode: '504',
+      appSecret: 'app-secret',
+      webhookVerifyToken: 'verify-token',
     });
   });
 
@@ -41,6 +45,15 @@ describe('loadWhatsappConfig', () => {
       }),
     ).toThrow(/WHATSAPP_CONFIRMATION_TEMPLATE_NAME/);
   });
+
+  it.each(['WHATSAPP_APP_SECRET', 'WHATSAPP_WEBHOOK_VERIFY_TOKEN'])(
+    'falla si falta %s',
+    (name) => {
+      expect(() => loadWhatsappConfig({ ...env, [name]: undefined })).toThrow(
+        new RegExp(name),
+      );
+    },
+  );
 
   it('falla si el código de país no son dígitos', () => {
     expect(() =>

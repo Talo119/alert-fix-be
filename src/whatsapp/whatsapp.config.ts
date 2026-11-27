@@ -10,6 +10,10 @@ export interface WhatsappConfig {
   templateLang: string;
   /** Código de país (solo dígitos) que se antepone a números locales. */
   defaultCountryCode: string;
+  /** App Secret de la app de Meta: firma de los webhooks (spec 13). */
+  appSecret: string;
+  /** Token que Meta envía en el handshake `GET /whatsapp/webhook` (spec 13). */
+  webhookVerifyToken: string;
 }
 
 const REQUIRED = {
@@ -20,6 +24,8 @@ const REQUIRED = {
   confirmationTemplateName: 'WHATSAPP_CONFIRMATION_TEMPLATE_NAME',
   templateLang: 'WHATSAPP_TEMPLATE_LANG',
   defaultCountryCode: 'WHATSAPP_DEFAULT_COUNTRY_CODE',
+  appSecret: 'WHATSAPP_APP_SECRET',
+  webhookVerifyToken: 'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
 } as const satisfies Record<keyof WhatsappConfig, string>;
 
 /**

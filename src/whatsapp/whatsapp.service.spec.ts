@@ -8,8 +8,11 @@ const cfg: WhatsappConfig = {
   phoneNumberId: '123456',
   apiVersion: 'v23.0',
   templateName: 'recordatorio_mantenimiento',
+  confirmationTemplateName: 'confirmacion_proximo_servicio',
   templateLang: 'es',
   defaultCountryCode: '504',
+  appSecret: 'app-secret',
+  webhookVerifyToken: 'verify-token',
 };
 
 const input = {
@@ -97,6 +100,85 @@ describe('WhatsappService', () => {
           },
         ],
       },
+    });
+  });
+
+  it('buttonPayloads → un componente quick_reply por payload, con su index', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, { messages: [{ id: 'wamid.ABC' }] }),
+    );
+    await service.sendTemplate({
+      ...input,
+      buttonPayloads: ['CONFIRM:a', 'OTHER:b'],
+    });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const { template } = JSON.parse(init.body as string) as {
+      template: { components: unknown[] };
+    };
+    expect(template.components).toEqual([
+      expect.objectContaining({ type: 'body' }),
+      {
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: '0',
+        parameters: [{ type: 'payload', payload: 'CONFIRM:a' }],
+      },
+      {
+        type: 'button',
+        sub_type: 'quick_reply',
+        index: '1',
+        parameters: [{ type: 'payload', payload: 'OTHER:b' }],
+      },
+    ]);
+  });
+
+  it('sin buttonPayloads → solo el componente body', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, { messages: [{ id: 'wamid.ABC' }] }),
+    );
+    await service.sendTemplate(input);
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const { template } = JSON.parse(init.body as string) as {
+      template: { components: { type: string }[] };
+    };
+    expect(template.components.map((c) => c.type)).toEqual(['body']);
+  });
+
+  describe('sendText', () => {
+    it('envía un mensaje de texto y devuelve el messageId', async () => {
+      fetchSpy.mockResolvedValue(
+        jsonResponse(200, { messages: [{ id: 'wamid.TXT' }] }),
+      );
+      await expect(service.sendText('50499998888', 'Hola')).resolves.toEqual({
+        messageId: 'wamid.TXT',
+      });
+
+      const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://graph.facebook.com/v23.0/123456/messages');
+      expect(JSON.parse(init.body as string)).toEqual({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '50499998888',
+        type: 'text',
+        text: { body: 'Hola' },
+      });
+    });
+
+    it('comparte la clasificación de errores', async () => {
+      fetchSpy.mockResolvedValue(graphError(400, 131047)); // fuera de la ventana de 24 h
+      const error = await caught(service.sendText('50499998888', 'Hola'));
+      expect(error).toMatchObject({
+        status: 400,
+        code: 131047,
+        retryable: false,
+      });
+
+      fetchSpy.mockResolvedValue(graphError(429, 4));
+      expect(
+        (await caught(service.sendText('50499998888', 'Hola'))).retryable,
+      ).toBe(true);
     });
   });
 

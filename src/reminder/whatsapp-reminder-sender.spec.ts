@@ -20,6 +20,8 @@ const cfg: WhatsappConfig = {
   confirmationTemplateName: 'confirmacion_proximo_servicio',
   templateLang: 'es',
   defaultCountryCode: '504',
+  appSecret: 'app-secret',
+  webhookVerifyToken: 'verify-token',
 };
 
 const baseClient: Client = {
@@ -55,6 +57,7 @@ const reminder = (
     // 09:00 en Tegucigalpa (UTC-6)
     serviceDate: new Date('2026-11-25T15:00:00Z'),
     nextServiceDate: null,
+    previousOrderId: null,
     status: 'OPEN',
     createdAt: new Date('2026-11-01T00:00:00Z'),
     updatedAt: new Date('2026-11-01T00:00:00Z'),
@@ -88,6 +91,8 @@ describe('WhatsappReminderSender', () => {
         'Cambio de filtro',
       ],
     });
+    // Los REMINDER no llevan el botón "Confirmar" (spec 13).
+    expect(sendTemplate.mock.calls[0][0]).not.toHaveProperty('buttonPayloads');
   });
 
   describe('CONFIRMATION', () => {
@@ -112,6 +117,7 @@ describe('WhatsappReminderSender', () => {
           'jueves, 25 de febrero, 10:00 a. m.',
           'Responde para confirmar',
         ],
+        buttonPayloads: ['CONFIRM:r1'],
       });
     });
 

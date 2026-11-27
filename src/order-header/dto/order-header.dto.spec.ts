@@ -35,6 +35,26 @@ describe('OrderHeader DTOs', () => {
     },
   );
 
+  // `previousOrderId` solo lo escribe `createFollowUp` (spec 13).
+  const previousOrderId = '6f1c2b1e-4c8a-4f5e-9a51-3b0b9d5f2a10';
+
+  it('rejects previousOrderId on create', async () => {
+    await expect(
+      validate(CreateOrderHeaderDto, {
+        serviceDate: '2026-12-01T14:00:00.000Z',
+        status: 'OPEN',
+        entries: [{ quantity: 1 }],
+        previousOrderId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects previousOrderId on update', async () => {
+    await expect(
+      validate(UpdateOrderHeaderDto, { previousOrderId }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('accepts a status change on update', async () => {
     await expect(
       validate(UpdateOrderHeaderDto, { status: 'COMPLETED' }),

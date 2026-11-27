@@ -23,6 +23,29 @@ import { OrderStatus } from './order-status.js';
 /** `db.orm.public` o `tx.orm.public`: la misma API dentro y fuera de una transacción. */
 type Orm = typeof db.orm.public;
 
+/** SQLSTATE `unique_violation`. */
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Prisma 8 normaliza la violación de un índice único a un `SqlQueryError`
+ * (`kind: 'sql_query'`, `sqlState: '23505'`), pero no exporta la clase desde
+ * `@prisma/orm-postgres`; se mira la forma y la cadena `cause` por si llega
+ * envuelto (o como error crudo de `pg`, con `code`).
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  for (let e = error, depth = 0; e && depth < 5; depth++) {
+    if (typeof e !== 'object') return false;
+    const { sqlState, code, cause } = e as {
+      sqlState?: unknown;
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (sqlState === UNIQUE_VIOLATION || code === UNIQUE_VIOLATION) return true;
+    e = cause;
+  }
+  return false;
+}
+
 @Injectable()
 export class OrderHeaderService {
   private readonly logger = new Logger(OrderHeaderService.name);
@@ -140,6 +163,80 @@ export class OrderHeaderService {
       return order;
     } catch (error) {
       this.handleError(`Failed to remove order ${id}`, error);
+    }
+  }
+
+  /**
+   * Crea la orden del próximo servicio a partir de una orden COMPLETED (spec 13).
+   * Idempotente: si ya existe una orden con `previousOrderId = originId`, la devuelve.
+   * `null` si la referencia no sirve (no existe, no está COMPLETED, sin
+   * `nextServiceDate`) o no le quedan líneas con servicios activos.
+   * Los errores de BD se propagan (el webhook responde 500 y Meta reintenta).
+   */
+  async createFollowUp(
+    originId: string,
+  ): Promise<{ order: OrderHeader; created: boolean } | null> {
+    try {
+      const result = await db.transaction(async (tx) => {
+        const orm = tx.orm.public;
+        const existing = await orm.OrderHeader.where({
+          previousOrderId: originId,
+        }).first();
+        if (existing) return { order: existing, created: false };
+
+        const origin = await orm.OrderHeader.where({ id: originId })
+          .include('entries', (entries) => entries.include('service'))
+          .first();
+        if (
+          !origin ||
+          origin.status !== OrderStatus.COMPLETED ||
+          !origin.nextServiceDate
+        ) {
+          this.logger.warn(
+            `Order ${originId} is not a COMPLETED order with nextServiceDate: no follow-up`,
+          );
+          return null;
+        }
+
+        // Fuera los servicios desactivados; las líneas sin servicio se copian.
+        const lines = origin.entries
+          .filter(({ service }) => service?.active !== false)
+          .map(({ serviceId, quantity }) => ({
+            serviceId: serviceId ?? undefined,
+            quantity,
+          }));
+        if (lines.length === 0) {
+          this.logger.warn(
+            `Order ${originId} has no active services left: no follow-up`,
+          );
+          return null;
+        }
+
+        const order = await orm.OrderHeader.create({
+          clientId: origin.clientId,
+          companyId: origin.companyId,
+          serviceDate: origin.nextServiceDate,
+          status: OrderStatus.OPEN,
+          previousOrderId: origin.id,
+        });
+        await this.createEntries(orm, order.id, lines);
+        return { order, created: true };
+      });
+      if (result?.created) {
+        this.logger.log(
+          `Created follow-up order ${result.order.id} from ${originId}`,
+        );
+      }
+      return result;
+    } catch (error) {
+      // Dos confirmaciones a la vez: la otra transacción ganó el índice único.
+      // Se relee fuera de la transacción abortada.
+      if (!isUniqueViolation(error)) throw error;
+      const order = await db.orm.public.OrderHeader.where({
+        previousOrderId: originId,
+      }).first();
+      if (!order) throw error;
+      return { order, created: false };
     }
   }
 

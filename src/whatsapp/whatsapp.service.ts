@@ -10,6 +10,8 @@ export interface SendTemplateInput {
   template: string;
   language: string;
   bodyParams: string[];
+  /** Un botón quick-reply por payload, en el orden de la plantilla (spec 13). */
+  buttonPayloads?: string[];
 }
 
 interface GraphErrorBody {
@@ -38,9 +40,57 @@ export class WhatsappService {
    * indica si tiene sentido reintentar.
    */
   async sendTemplate(input: SendTemplateInput): Promise<{ messageId: string }> {
-    const url = `https://graph.facebook.com/${this.cfg.apiVersion}/${this.cfg.phoneNumberId}/messages`;
-    const masked = maskPhone(input.to);
+    const buttons = (input.buttonPayloads ?? []).map((payload, i) => ({
+      type: 'button',
+      sub_type: 'quick_reply',
+      index: String(i),
+      parameters: [{ type: 'payload', payload }],
+    }));
+    return this.post(
+      {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: input.to,
+        type: 'template',
+        template: {
+          name: input.template,
+          language: { code: input.language },
+          components: [
+            {
+              type: 'body',
+              parameters: input.bodyParams.map((text) => ({
+                type: 'text',
+                text,
+              })),
+            },
+            ...buttons,
+          ],
+        },
+      },
+      maskPhone(input.to),
+    );
+  }
 
+  /** Mensaje de texto libre. Solo válido dentro de la ventana de 24 h del cliente. */
+  async sendText(to: string, body: string): Promise<{ messageId: string }> {
+    return this.post(
+      {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'text',
+        text: { body },
+      },
+      maskPhone(to),
+    );
+  }
+
+  /** `POST /messages` con timeout y clasificación de errores comunes a todo envío. */
+  private async post(
+    payload: Record<string, unknown>,
+    masked: string,
+  ): Promise<{ messageId: string }> {
+    const url = `https://graph.facebook.com/${this.cfg.apiVersion}/${this.cfg.phoneNumberId}/messages`;
     let res: Response;
     try {
       res = await fetch(url, {
@@ -49,25 +99,7 @@ export class WhatsappService {
           Authorization: `Bearer ${this.cfg.accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: input.to,
-          type: 'template',
-          template: {
-            name: input.template,
-            language: { code: input.language },
-            components: [
-              {
-                type: 'body',
-                parameters: input.bodyParams.map((text) => ({
-                  type: 'text',
-                  text,
-                })),
-              },
-            ],
-          },
-        }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
     } catch (error) {

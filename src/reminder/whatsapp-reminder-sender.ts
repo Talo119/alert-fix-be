@@ -7,6 +7,7 @@ import {
 } from '../whatsapp/whatsapp.config.js';
 import { normalizePhone, sanitizeParam } from '../whatsapp/whatsapp-format.js';
 import { WhatsappService } from '../whatsapp/whatsapp.service.js';
+import { confirmPayload } from '../whatsapp-webhook/confirm-payload.js';
 import { formatServiceDate } from './date-utils.js';
 import { ReminderSender, type ReminderSendResult } from './reminder-sender.js';
 import { ReminderType } from './reminder-type.js';
@@ -15,7 +16,8 @@ import type { ReminderWithClient } from './reminder.types.js';
 /**
  * Envía el reminder como plantilla de WhatsApp:
  * `{{1}}` nombre del cliente, `{{2}}` fecha del servicio, `{{3}}` mensaje.
- * Los `CONFIRMATION` (spec 12) usan su propia plantilla y `nextServiceDate`.
+ * Los `CONFIRMATION` (spec 12) usan su propia plantilla y `nextServiceDate`,
+ * y llevan el botón "Confirmar" con payload `CONFIRM:<reminderId>` (spec 13).
  */
 @Injectable()
 export class WhatsappReminderSender extends ReminderSender {
@@ -66,6 +68,9 @@ export class WhatsappReminderSender extends ReminderSender {
           formatServiceDate(date, this.timeZone),
           reminder.message,
         ].map(sanitizeParam),
+        ...(isConfirmation && {
+          buttonPayloads: [confirmPayload(reminder.id)],
+        }),
       });
       return { externalMessageId: messageId };
     } catch (error) {

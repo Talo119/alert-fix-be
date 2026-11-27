@@ -5,5 +5,6 @@ import { OrderHeaderController } from './order-header.controller.js';
 @Module({
   controllers: [OrderHeaderController],
   providers: [OrderHeaderService],
+  exports: [OrderHeaderService],
 })
 export class OrderHeaderModule {}

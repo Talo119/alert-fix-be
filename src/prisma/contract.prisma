@@ -55,6 +55,7 @@ model OrderHeader {
   serviceDate DateTime
   nextServiceDate DateTime?
   status    String
+  previousOrderId String?      @unique   // orden de la que viene (spec 13)
   entries   OrderEntry[]
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt

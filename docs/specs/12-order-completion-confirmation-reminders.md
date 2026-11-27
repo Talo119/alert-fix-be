@@ -37,7 +37,7 @@ Hoy no existe nada de esto:
 **Dentro:** cambios de contract y migración, frecuencia en el recurso `service`, `type` en el recurso `reminder`, cálculo de fechas, creación de reminders en `OrderHeaderService.update`, `nextServiceDate` de solo lectura, plantilla de confirmación en el sender, tests y roadmap.
 
 **Fuera (futuro):**
-- El webhook que recibe la confirmación del cliente desde WhatsApp (botones de la plantilla) y crea la orden siguiente.
+- El webhook que recibe la confirmación del cliente desde WhatsApp (botones de la plantilla) y crea la orden siguiente: [spec 13](./13-whatsapp-confirmation-webhook.md).
 - Eliminar o cancelar los reminders `CONFIRMATION` restantes cuando el cliente ya confirmó.
 - Recalcular `nextServiceDate` o los reminders si cambia la frecuencia del servicio, las líneas de una orden ya completada, o si la orden se reabre (`COMPLETED → OPEN`).
 - Disparar el flujo en `POST` (orden creada directamente `COMPLETED`) o en `CANCELLED → COMPLETED`.
@@ -376,7 +376,7 @@ Es obligatoria: sin ella la app no arranca.
 
 ### 10. Configuración en Meta
 
-Crear la plantilla `confirmacion_proximo_servicio` (Utility, `es`) con los mismos 3 parámetros que `recordatorio_mantenimiento`: `{{1}}` nombre del cliente, `{{2}}` fecha del próximo servicio, `{{3}}` mensaje. Esperar su aprobación. Los botones de respuesta rápida para confirmar se definirán con el spec del webhook.
+Crear la plantilla `confirmacion_proximo_servicio` (Utility, `es`) con los mismos 3 parámetros que `recordatorio_mantenimiento`: `{{1}}` nombre del cliente, `{{2}}` fecha del próximo servicio, `{{3}}` mensaje. Esperar su aprobación. Los botones de respuesta rápida para confirmar se definen en el [spec 13](./13-whatsapp-confirmation-webhook.md).
 
 ### 11. Roadmap
 

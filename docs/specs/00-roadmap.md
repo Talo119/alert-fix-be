@@ -10,9 +10,9 @@
 | 2 | User | `user` | Company | Implementado | — |
 | 3 | Client | `client` | Company | Implementado | [06](./06-resource-client.md) |
 | 4 | Service | `service` | Company | Implementado | [07](./07-resource-service.md) · [12](./12-order-completion-confirmation-reminders.md) |
-| 5 | OrderHeader | `order-header` | Client, Company | Implementado | [08](./08-resource-order-header.md) · [10](./10-order-header-master-detail.md) · [12](./12-order-completion-confirmation-reminders.md) |
+| 5 | OrderHeader | `order-header` | Client, Company | Implementado | [08](./08-resource-order-header.md) · [10](./10-order-header-master-detail.md) · [12](./12-order-completion-confirmation-reminders.md) · [13](./13-whatsapp-confirmation-webhook.md) |
 | 6 | OrderEntry | `order-entry` | OrderHeader, Service | Implementado | [09](./09-resource-order-entry.md) |
-| 7 | Reminder | `reminder` | OrderHeader | Implementado | [11](./11-resource-reminder.md) · [01](./01-reminders-cron.md) · [02](./02-reminders-queue-bullmq.md) · [03](./03-reminders-whatsapp.md) · [12](./12-order-completion-confirmation-reminders.md) |
+| 7 | Reminder | `reminder` | OrderHeader | Implementado | [11](./11-resource-reminder.md) · [01](./01-reminders-cron.md) · [02](./02-reminders-queue-bullmq.md) · [03](./03-reminders-whatsapp.md) · [12](./12-order-completion-confirmation-reminders.md) · [13](./13-whatsapp-confirmation-webhook.md) |
 
 ## Flujos
 
@@ -21,6 +21,7 @@ Specs de comportamiento que cruzan varios recursos.
 | Flujo | Recursos | Estado | Spec |
 |---|---|---|---|
 | Reminders de confirmación al completar una orden | Service, OrderHeader, Reminder | Implementado | [12](./12-order-completion-confirmation-reminders.md) |
+| Confirmación del próximo servicio por WhatsApp (webhook) | OrderHeader, Reminder, WhatsApp | Implementado | [13](./13-whatsapp-confirmation-webhook.md) |
 
 ## Estados
 
