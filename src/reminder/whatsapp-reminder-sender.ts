@@ -9,11 +9,13 @@ import { normalizePhone, sanitizeParam } from '../whatsapp/whatsapp-format.js';
 import { WhatsappService } from '../whatsapp/whatsapp.service.js';
 import { formatServiceDate } from './date-utils.js';
 import { ReminderSender, type ReminderSendResult } from './reminder-sender.js';
+import { ReminderType } from './reminder-type.js';
 import type { ReminderWithClient } from './reminder.types.js';
 
 /**
  * Envía el reminder como plantilla de WhatsApp:
  * `{{1}}` nombre del cliente, `{{2}}` fecha del servicio, `{{3}}` mensaje.
+ * Los `CONFIRMATION` (spec 12) usan su propia plantilla y `nextServiceDate`.
  */
 @Injectable()
 export class WhatsappReminderSender extends ReminderSender {
@@ -44,14 +46,24 @@ export class WhatsappReminderSender extends ReminderSender {
       );
     }
 
+    const isConfirmation = reminder.type === ReminderType.CONFIRMATION;
+    const date = isConfirmation ? order.nextServiceDate : order.serviceDate;
+    if (!date) {
+      throw new UnrecoverableError(
+        `Reminder ${reminder.id}: la orden no tiene nextServiceDate`,
+      );
+    }
+
     try {
       const { messageId } = await this.whatsapp.sendTemplate({
         to,
-        template: this.cfg.templateName,
+        template: isConfirmation
+          ? this.cfg.confirmationTemplateName
+          : this.cfg.templateName,
         language: this.cfg.templateLang,
         bodyParams: [
           client.name,
-          formatServiceDate(order.serviceDate, this.timeZone),
+          formatServiceDate(date, this.timeZone),
           reminder.message,
         ].map(sanitizeParam),
       });

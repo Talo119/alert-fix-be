@@ -5,6 +5,8 @@ export interface WhatsappConfig {
   phoneNumberId: string;
   apiVersion: string;
   templateName: string;
+  /** Plantilla de los reminders `CONFIRMATION` (spec 12). */
+  confirmationTemplateName: string;
   templateLang: string;
   /** Código de país (solo dígitos) que se antepone a números locales. */
   defaultCountryCode: string;
@@ -15,6 +17,7 @@ const REQUIRED = {
   phoneNumberId: 'WHATSAPP_PHONE_NUMBER_ID',
   apiVersion: 'WHATSAPP_API_VERSION',
   templateName: 'WHATSAPP_TEMPLATE_NAME',
+  confirmationTemplateName: 'WHATSAPP_CONFIRMATION_TEMPLATE_NAME',
   templateLang: 'WHATSAPP_TEMPLATE_LANG',
   defaultCountryCode: 'WHATSAPP_DEFAULT_COUNTRY_CODE',
 } as const satisfies Record<keyof WhatsappConfig, string>;

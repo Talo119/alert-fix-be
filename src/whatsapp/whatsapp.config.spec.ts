@@ -5,6 +5,7 @@ const env = {
   WHATSAPP_PHONE_NUMBER_ID: '123',
   WHATSAPP_API_VERSION: 'v23.0',
   WHATSAPP_TEMPLATE_NAME: 'recordatorio_mantenimiento',
+  WHATSAPP_CONFIRMATION_TEMPLATE_NAME: 'confirmacion_proximo_servicio',
   WHATSAPP_TEMPLATE_LANG: 'es',
   WHATSAPP_DEFAULT_COUNTRY_CODE: '504',
 };
@@ -16,6 +17,7 @@ describe('loadWhatsappConfig', () => {
       phoneNumberId: '123',
       apiVersion: 'v23.0',
       templateName: 'recordatorio_mantenimiento',
+      confirmationTemplateName: 'confirmacion_proximo_servicio',
       templateLang: 'es',
       defaultCountryCode: '504',
     });
@@ -29,6 +31,15 @@ describe('loadWhatsappConfig', () => {
         WHATSAPP_PHONE_NUMBER_ID: undefined,
       }),
     ).toThrow(/WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID/);
+  });
+
+  it('falla si falta la plantilla de confirmación', () => {
+    expect(() =>
+      loadWhatsappConfig({
+        ...env,
+        WHATSAPP_CONFIRMATION_TEMPLATE_NAME: undefined,
+      }),
+    ).toThrow(/WHATSAPP_CONFIRMATION_TEMPLATE_NAME/);
   });
 
   it('falla si el código de país no son dígitos', () => {

@@ -34,6 +34,7 @@ const reminderWithClient = (
   sentAt: null,
   lastError: null,
   externalMessageId: null,
+  type: 'REMINDER',
   createdAt: new Date('2026-11-01T00:00:00Z'),
   updatedAt: new Date('2026-11-01T00:00:00Z'),
   order: null,

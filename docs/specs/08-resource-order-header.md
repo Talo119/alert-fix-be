@@ -33,7 +33,7 @@ Tomado de `src/prisma/contract.prisma`:
 | `clientId` | `String?` (FK) | no | sí | `@IsOptional() @IsUUID()` |
 | `companyId` | `String?` (FK) | no | sí | `@IsOptional() @IsUUID()` |
 | `serviceDate` | `DateTime` | sí | sí | `@IsDateString()` |
-| `nextServiceDate` | `DateTime?` | no | sí | `@IsOptional() @IsDateString()` |
+| `nextServiceDate` | `DateTime?` | no | **no** (spec [12](./12-order-completion-confirmation-reminders.md)) | Solo lectura: la calcula el service al pasar la orden de `OPEN` a `COMPLETED`. Enviarla responde 400. |
 | `status` | `String` | sí | sí | `@IsIn(ORDER_STATUSES)`: `OPEN`, `COMPLETED` o `CANCELLED` (`src/order-header/order-status.ts`). Los `GET` (`findAll`, `findOne`) excluyen las `CANCELLED`; `PATCH` y `DELETE` sí las alcanzan. |
 | `createdAt` | `DateTime` | generado | no | — |
 | `updatedAt` | `temporal.UpdatedAt` | generado | no | — |
@@ -129,7 +129,7 @@ No se crean más DTOs.
 - En el `catch`, las `HttpException` se relanzan; el resto se loguea y lanza `InternalServerErrorException`.
 - **FKs `clientId` y `companyId`:** como hay dos, la verificación va en un helper privado `assertReferencesExist(dto)`, llamado en `create` y en `update`. Para cada FK presente (truthy) consulta `db.orm.public.Client` / `db.orm.public.Company` con `whereUnique({ id }).first()`; si no existe, `BadRequestException(\`Client ${clientId} does not exist\`)` o `BadRequestException(\`Company ${companyId} does not exist\`)`.
 - **Sin `@unique`:** no hay comprobación de duplicados ni `ConflictException`.
-- **Fechas:** `serviceDate` llega como string; se convierte con `new Date(...)` antes de `create` y, en `update`, solo si el DTO lo trae (para no pisar la fecha con `Invalid Date`). `nextServiceDate` (opcional) se convierte igual; en `update`, `null` quita la fecha (`@IsOptional()` lo deja pasar y `new Date(null)` guardaría 1970).
+- **Fechas:** `serviceDate` llega como string; se convierte con `new Date(...)` antes de `create` y, en `update`, solo si el DTO lo trae (para no pisar la fecha con `Invalid Date`). `nextServiceDate` (opcional) se convierte igual; en `update`, `null` quita la fecha (`@IsOptional()` lo deja pasar y `new Date(null)` guardaría 1970). **Reemplazado por el spec [12](./12-order-completion-confirmation-reminders.md):** `nextServiceDate` salió de los DTOs y la escribe el service al completar la orden.
 - **`findAll`** usa `all()`: el modelo no tiene `active`.
 
 ```ts

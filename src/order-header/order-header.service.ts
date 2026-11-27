@@ -7,9 +7,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { db } from '../prisma/db.js';
+import { ReminderStatus } from '../reminder/reminder-status.js';
+import { ReminderType } from '../reminder/reminder-type.js';
+import type { OrderHeader } from '../reminder/reminder.types.js';
 import { CreateOrderHeaderDto } from './dto/create-order-header.dto.js';
 import { OrderHeaderEntryDto } from './dto/order-header-entry.dto.js';
 import { UpdateOrderHeaderDto } from './dto/update-order-header.dto.js';
+import {
+  CONFIRMATION_MESSAGE,
+  computeNextServiceDate,
+  confirmationReminderDates,
+} from './next-service.js';
 import { OrderStatus } from './order-status.js';
 
 /** `db.orm.public` o `tx.orm.public`: la misma API dentro y fuera de una transacción. */
@@ -21,17 +29,13 @@ export class OrderHeaderService {
 
   async create(createOrderHeaderDto: CreateOrderHeaderDto) {
     try {
-      const { serviceDate, nextServiceDate, entries, ...rest } =
-        createOrderHeaderDto;
+      const { serviceDate, entries, ...rest } = createOrderHeaderDto;
       const order = await db.transaction(async (tx) => {
         const orm = tx.orm.public;
         await this.assertReferencesExist(orm, createOrderHeaderDto);
         const header = await orm.OrderHeader.create({
           ...rest,
           serviceDate: new Date(serviceDate),
-          ...(nextServiceDate && {
-            nextServiceDate: new Date(nextServiceDate),
-          }),
         });
         const created = await this.createEntries(orm, header.id, entries);
         return { ...header, entries: created };
@@ -78,8 +82,7 @@ export class OrderHeaderService {
 
   async update(id: string, updateOrderHeaderDto: UpdateOrderHeaderDto) {
     try {
-      const { serviceDate, nextServiceDate, entries, ...rest } =
-        updateOrderHeaderDto;
+      const { serviceDate, entries, ...rest } = updateOrderHeaderDto;
       const order = await db.transaction(async (tx) => {
         const orm = tx.orm.public;
         const existing = await orm.OrderHeader.whereUnique({ id }).first();
@@ -93,10 +96,6 @@ export class OrderHeaderService {
           ...(serviceDate !== undefined && {
             serviceDate: new Date(serviceDate),
           }),
-          // `@IsOptional()` deja pasar `null`: quita la fecha.
-          ...(nextServiceDate !== undefined && {
-            nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
-          }),
         };
         const header =
           Object.keys(data).length > 0
@@ -109,8 +108,16 @@ export class OrderHeaderService {
           await this.createEntries(orm, id, entries);
         }
 
+        // Solo la transición OPEN → COMPLETED: repetir COMPLETED no duplica reminders.
+        const completing =
+          existing.status === OrderStatus.OPEN &&
+          rest.status === OrderStatus.COMPLETED;
+        const result = completing
+          ? await this.scheduleConfirmation(orm, id, header)
+          : header;
+
         return {
-          ...header,
+          ...result,
           entries: await orm.OrderEntry.where({ orderId: id }).all(),
         };
       });
@@ -134,6 +141,56 @@ export class OrderHeaderService {
     } catch (error) {
       this.handleError(`Failed to remove order ${id}`, error);
     }
+  }
+
+  /**
+   * Calcula `nextServiceDate` con la frecuencia más corta de los servicios de la
+   * orden y crea los reminders `CONFIRMATION` (spec 12). Corre dentro de la
+   * transacción del `update`: si falla, la orden no queda `COMPLETED`.
+   */
+  private async scheduleConfirmation(
+    orm: Orm,
+    orderId: string,
+    header: OrderHeader,
+  ) {
+    const now = new Date();
+    // Después de `createEntries`: si el mismo PATCH trae líneas, usa las nuevas.
+    const entries = await orm.OrderEntry.where({ orderId })
+      .include('service')
+      .all();
+    // Los servicios inactivos también cuentan: el servicio se prestó.
+    const services = entries.flatMap(({ service }) =>
+      service ? [service] : [],
+    );
+    const nextServiceDate = computeNextServiceDate(services, now);
+
+    const updated =
+      (await orm.OrderHeader.whereUnique({ id: orderId }).update({
+        nextServiceDate,
+      })) ?? header;
+
+    if (!nextServiceDate) {
+      this.logger.warn(
+        `Order ${orderId} completed without service frequency: no confirmation reminders`,
+      );
+      return updated;
+    }
+
+    // En secuencia, como `createEntries`: una sola conexión en la transacción.
+    const dates = confirmationReminderDates(nextServiceDate, now);
+    for (const remindAt of dates) {
+      await orm.Reminder.create({
+        orderId,
+        type: ReminderType.CONFIRMATION,
+        status: ReminderStatus.PENDING,
+        message: CONFIRMATION_MESSAGE,
+        remindAt,
+      });
+    }
+    this.logger.log(
+      `Order ${orderId} completed: next service ${nextServiceDate.toISOString()}, ${dates.length} confirmation reminders`,
+    );
+    return updated;
   }
 
   /**

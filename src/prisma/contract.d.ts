@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0ca4b2bb7c6a0c74cc3f676a2201911379a16332874131cff2c4ab0c07e95ba4'>;
+  StorageHashBase<'0c737946c25310ea71659155bd9ca201f94a1b3a8576acec924621edc37ae0d1'>;
 export type ExecutionHash =
   ExecutionHashBase<'0f6187f3026a0308e032f7e5587a7856b639695f07a21aa324371b58bdac1884'>;
 export type ProfileHash =
@@ -365,6 +365,7 @@ export namespace Models {
     remindAt: FieldOutputTypes['public']['Reminder']['remindAt'];
     sentAt: FieldOutputTypes['public']['Reminder']['sentAt'];
     status: FieldOutputTypes['public']['Reminder']['status'];
+    type: FieldOutputTypes['public']['Reminder']['type'];
     updatedAt: FieldOutputTypes['public']['Reminder']['updatedAt'];
     order: public_OrderHeader | null;
     readonly [RelationKeys]?: 'order';
@@ -374,6 +375,8 @@ export namespace Models {
     companyId: FieldOutputTypes['public']['Service']['companyId'];
     createdAt: FieldOutputTypes['public']['Service']['createdAt'];
     description: FieldOutputTypes['public']['Service']['description'];
+    frequencyUnit: FieldOutputTypes['public']['Service']['frequencyUnit'];
+    frequencyValue: FieldOutputTypes['public']['Service']['frequencyValue'];
     id: FieldOutputTypes['public']['Service']['id'];
     name: FieldOutputTypes['public']['Service']['name'];
     updatedAt: FieldOutputTypes['public']['Service']['updatedAt'];
@@ -796,6 +799,16 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly many: false;
                 };
+                readonly type: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'REMINDER'>;
+                  };
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
@@ -858,6 +871,18 @@ type ContractBase = Omit<
                 readonly description: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly frequencyUnit: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly frequencyValue: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
                   readonly nullable: true;
                   readonly many: false;
                 };
@@ -1366,6 +1391,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly type: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1402,6 +1431,7 @@ type ContractBase = Omit<
                 readonly remindAt: { readonly column: 'remindAt' };
                 readonly sentAt: { readonly column: 'sentAt' };
                 readonly status: { readonly column: 'status' };
+                readonly type: { readonly column: 'type' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
@@ -1427,6 +1457,14 @@ type ContractBase = Omit<
               readonly description: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly frequencyUnit: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly frequencyValue: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
               readonly id: {
                 readonly nullable: false;
@@ -1467,6 +1505,8 @@ type ContractBase = Omit<
                 readonly companyId: { readonly column: 'companyId' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly description: { readonly column: 'description' };
+                readonly frequencyUnit: { readonly column: 'frequencyUnit' };
+                readonly frequencyValue: { readonly column: 'frequencyValue' };
                 readonly id: { readonly column: 'id' };
                 readonly name: { readonly column: 'name' };
                 readonly updatedAt: { readonly column: 'updatedAt' };

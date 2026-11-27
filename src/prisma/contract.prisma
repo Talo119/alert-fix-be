@@ -37,6 +37,8 @@ model Service {
   id        String             @id @onCreate(uuid())
   name      String
   description String?
+  frequencyValue Int?
+  frequencyUnit  String?            // FrequencyUnit: DAY | MONTH
   company   Company?           @relation(fields: [companyId], references: [id])
   companyId String?
   active    Boolean            @default(true)
@@ -76,6 +78,7 @@ model Reminder {
   message   String
   remindAt  DateTime
   status    String
+  type      String             @default("REMINDER")   // ReminderType: REMINDER | CONFIRMATION
   sentAt    DateTime?
   lastError String?
   externalMessageId String?

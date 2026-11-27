@@ -87,14 +87,14 @@ type Orm = typeof db.orm.public;
 **`create(dto)`**:
 
 ```ts
-const { serviceDate, nextServiceDate, entries, ...rest } = dto;
+// `nextServiceDate` ya no viene en el DTO: la calcula `update` al completar (spec 12).
+const { serviceDate, entries, ...rest } = dto;
 const order = await db.transaction(async (tx) => {
   const orm = tx.orm.public;
   await this.assertReferencesExist(orm, dto);
   const header = await orm.OrderHeader.create({
     ...rest,
     serviceDate: new Date(serviceDate),
-    ...(nextServiceDate && { nextServiceDate: new Date(nextServiceDate) }),
   });
   const created = await this.createEntries(orm, header.id, entries);
   return { ...header, entries: created };
@@ -109,9 +109,10 @@ return order;
 
 1. `orm.OrderHeader.whereUnique({ id }).first()` → `NotFoundException` si `null` (dentro de la transacción, no vía `this.findOne`, que usa `db`).
 2. `assertReferencesExist(orm, dto)`.
-3. Si el DTO trae campos de cabecera, `orm.OrderHeader.whereUnique({ id }).update({...})` con la conversión condicional de `serviceDate` y `nextServiceDate` de hoy; si no, se usa la cabecera leída en el punto 1.
+3. Si el DTO trae campos de cabecera, `orm.OrderHeader.whereUnique({ id }).update({...})` con la conversión condicional de `serviceDate` (`nextServiceDate` ya no está en el DTO, ver spec [12](./12-order-completion-confirmation-reminders.md)); si no, se usa la cabecera leída en el punto 1.
 4. Si `entries !== undefined`: `orm.OrderEntry.where({ orderId: id }).deleteAll()` y crear las nuevas con `orderId: id`.
-5. Retornar `{ ...header, entries: await orm.OrderEntry.where({ orderId: id }).all() }`.
+5. Si la orden pasa de `OPEN` a `COMPLETED`, calcular `nextServiceDate` y crear los reminders `CONFIRMATION` (spec [12](./12-order-completion-confirmation-reminders.md)).
+6. Retornar `{ ...header, entries: await orm.OrderEntry.where({ orderId: id }).all() }`.
 
 **`findOne(id)`**: include anidado; cada línea trae su servicio, limitado a `id`, `name` y `description` → `NotFoundException` si `null`.
 

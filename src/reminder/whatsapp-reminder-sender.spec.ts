@@ -3,6 +3,7 @@ import type { WhatsappConfig } from '../whatsapp/whatsapp.config.js';
 import { WhatsappApiError } from '../whatsapp/whatsapp-api.error.js';
 import type { WhatsappService } from '../whatsapp/whatsapp.service.js';
 import { ReminderStatus } from './reminder-status.js';
+import { ReminderType } from './reminder-type.js';
 import type { Client, ReminderWithClient } from './reminder.types.js';
 
 vi.hoisted(() => {
@@ -16,6 +17,7 @@ const cfg: WhatsappConfig = {
   phoneNumberId: '123',
   apiVersion: 'v23.0',
   templateName: 'recordatorio_mantenimiento',
+  confirmationTemplateName: 'confirmacion_proximo_servicio',
   templateLang: 'es',
   defaultCountryCode: '504',
 };
@@ -43,6 +45,7 @@ const reminder = (
   sentAt: null,
   lastError: null,
   externalMessageId: null,
+  type: ReminderType.REMINDER,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   updatedAt: new Date('2026-11-01T00:00:00Z'),
   order: {
@@ -84,6 +87,39 @@ describe('WhatsappReminderSender', () => {
         'miércoles, 25 de noviembre, 9:00 a. m.',
         'Cambio de filtro',
       ],
+    });
+  });
+
+  describe('CONFIRMATION', () => {
+    const confirmation = (nextServiceDate: Date | null): ReminderWithClient => {
+      const base = reminder({}, 'Responde para confirmar');
+      return {
+        ...base,
+        type: ReminderType.CONFIRMATION,
+        order: base.order && { ...base.order, nextServiceDate },
+      };
+    };
+
+    it('usa la plantilla de confirmación y nextServiceDate en {{2}}', async () => {
+      // 10:00 en Tegucigalpa (UTC-6)
+      await sender.send(confirmation(new Date('2027-02-25T16:00:00Z')));
+      expect(sendTemplate).toHaveBeenCalledWith({
+        to: '50499998888',
+        template: 'confirmacion_proximo_servicio',
+        language: 'es',
+        bodyParams: [
+          'Ana López',
+          'jueves, 25 de febrero, 10:00 a. m.',
+          'Responde para confirmar',
+        ],
+      });
+    });
+
+    it('sin nextServiceDate → UnrecoverableError sin enviar', async () => {
+      await expect(sender.send(confirmation(null))).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+      expect(sendTemplate).not.toHaveBeenCalled();
     });
   });
 

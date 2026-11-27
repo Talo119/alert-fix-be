@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { CONFIRMATION_MESSAGE } from './next-service.js';
 import { OrderHeaderService } from './order-header.service.js';
 import { OrderStatus } from './order-status.js';
 
@@ -13,7 +15,9 @@ const {
   filtered,
   orderModel,
   entryFiltered,
+  entryIncluded,
   entryModel,
+  reminderModel,
   clientUnique,
   clientModel,
   companyUnique,
@@ -37,8 +41,14 @@ const {
     whereUnique: vi.fn(() => unique),
     where: vi.fn((_filter: unknown) => filtered),
   };
-  const entryFiltered = { deleteAll: vi.fn(), all: vi.fn() };
+  const entryIncluded = { all: vi.fn() };
+  const entryFiltered = {
+    deleteAll: vi.fn(),
+    all: vi.fn(),
+    include: vi.fn(() => entryIncluded),
+  };
   const entryModel = { create: vi.fn(), where: vi.fn(() => entryFiltered) };
+  const reminderModel = { create: vi.fn() };
   const clientUnique = { first: vi.fn() };
   const clientModel = { whereUnique: vi.fn(() => clientUnique) };
   const companyUnique = { first: vi.fn() };
@@ -49,6 +59,7 @@ const {
     public: {
       OrderHeader: orderModel,
       OrderEntry: entryModel,
+      Reminder: reminderModel,
       Client: clientModel,
       Company: companyModel,
       Service: serviceModel,
@@ -60,7 +71,9 @@ const {
     filtered,
     orderModel,
     entryFiltered,
+    entryIncluded,
     entryModel,
+    reminderModel,
     clientUnique,
     clientModel,
     companyUnique,
@@ -87,7 +100,6 @@ describe('OrderHeaderService', () => {
   const serviceA = '5e7f0000-1234-4abc-8def-0123456789ab';
   const serviceB = '5e7f0001-1234-4abc-8def-0123456789ab';
   const serviceDate = '2026-12-01T14:00:00.000Z';
-  const nextServiceDate = '2027-03-01T14:00:00.000Z';
   const client = { id: clientId, name: 'Ana Pérez', companyId };
   const company = { id: companyId, name: 'Acme', active: true };
   const record = {
@@ -165,24 +177,7 @@ describe('OrderHeaderService', () => {
       });
     });
 
-    it('converts nextServiceDate to Date', async () => {
-      orderModel.create.mockResolvedValue(record);
-      entryModel.create.mockResolvedValue(entryRows[0]);
-
-      await service.create({
-        serviceDate,
-        nextServiceDate,
-        status: OrderStatus.OPEN,
-        entries: [{ quantity: 1 }],
-      });
-      expect(orderModel.create).toHaveBeenCalledWith({
-        serviceDate: new Date(serviceDate),
-        nextServiceDate: new Date(nextServiceDate),
-        status: OrderStatus.OPEN,
-      });
-    });
-
-    it('does not set nextServiceDate when the DTO omits it', async () => {
+    it('does not set nextServiceDate: only completing an order does', async () => {
       orderModel.create.mockResolvedValue(record);
       entryModel.create.mockResolvedValue(entryRows[0]);
 
@@ -385,38 +380,14 @@ describe('OrderHeaderService', () => {
       expect(entryModel.create).not.toHaveBeenCalled();
     });
 
-    it('converts nextServiceDate to Date', async () => {
-      unique.first.mockResolvedValue(record);
-      unique.update.mockResolvedValue(record);
-      entryFiltered.all.mockResolvedValue(entryRows);
-
-      await service.update(id, { nextServiceDate });
-      expect(unique.update).toHaveBeenCalledWith({
-        nextServiceDate: new Date(nextServiceDate),
-      });
-    });
-
-    it('clears nextServiceDate when the DTO sends null', async () => {
-      unique.first.mockResolvedValue(record);
-      unique.update.mockResolvedValue(record);
-      entryFiltered.all.mockResolvedValue(entryRows);
-      // `@IsOptional()` lets `null` through, although the DTO type does not.
-      const body = { nextServiceDate: null } as unknown as {
-        nextServiceDate?: string;
-      };
-
-      await service.update(id, body);
-      expect(unique.update).toHaveBeenCalledWith({ nextServiceDate: null });
-    });
-
     it('does not touch the dates when the DTO omits them', async () => {
-      const updated = { ...record, status: OrderStatus.COMPLETED };
+      const updated = { ...record, status: OrderStatus.CANCELLED };
       unique.first.mockResolvedValue(record);
       unique.update.mockResolvedValue(updated);
       entryFiltered.all.mockResolvedValue([]);
 
       await expect(
-        service.update(id, { status: OrderStatus.COMPLETED }),
+        service.update(id, { status: OrderStatus.CANCELLED }),
       ).resolves.toEqual({
         ...updated,
         entries: [],
@@ -424,7 +395,7 @@ describe('OrderHeaderService', () => {
       expect(clientModel.whereUnique).not.toHaveBeenCalled();
       expect(companyModel.whereUnique).not.toHaveBeenCalled();
       expect(unique.update).toHaveBeenCalledWith({
-        status: OrderStatus.COMPLETED,
+        status: OrderStatus.CANCELLED,
       });
       const [data] = unique.update.mock.calls[0] as [object];
       expect(data).not.toHaveProperty('serviceDate');
@@ -482,6 +453,148 @@ describe('OrderHeaderService', () => {
       );
       expect(entryFiltered.deleteAll).not.toHaveBeenCalled();
       expect(entryModel.create).not.toHaveBeenCalled();
+    });
+
+    describe('OPEN → COMPLETED (spec 12)', () => {
+      const now = new Date('2026-11-27T15:30:00.000Z');
+      const completed = { ...record, status: OrderStatus.COMPLETED };
+      const withService = (
+        frequencyValue: number | null,
+        frequencyUnit: string | null,
+      ) => ({
+        ...entryRows[0],
+        service: { id: serviceA, frequencyValue, frequencyUnit, active: true },
+      });
+
+      beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        unique.first.mockResolvedValue(record);
+        unique.update.mockImplementation((data: object) =>
+          Promise.resolve({ ...completed, ...data }),
+        );
+        entryFiltered.all.mockResolvedValue(entryRows);
+        reminderModel.create.mockImplementation((data: object) =>
+          Promise.resolve({ id: 'r', ...data }),
+        );
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('sets nextServiceDate and creates 3 CONFIRMATION reminders', async () => {
+        entryIncluded.all.mockResolvedValue([withService(3, 'MONTH')]);
+        const next = new Date('2027-02-27T15:30:00.000Z');
+
+        await expect(
+          service.update(id, { status: OrderStatus.COMPLETED }),
+        ).resolves.toEqual({
+          ...completed,
+          nextServiceDate: next,
+          entries: entryRows,
+        });
+        expect(entryModel.where).toHaveBeenCalledWith({ orderId: id });
+        expect(entryFiltered.include).toHaveBeenCalledWith('service');
+        expect(unique.update).toHaveBeenNthCalledWith(1, {
+          status: OrderStatus.COMPLETED,
+        });
+        expect(unique.update).toHaveBeenNthCalledWith(2, {
+          nextServiceDate: next,
+        });
+        expect(reminderModel.create).toHaveBeenCalledTimes(3);
+        const remindAts = [
+          '2027-01-27T15:30:00.000Z',
+          '2027-02-12T15:30:00.000Z',
+          '2027-02-20T15:30:00.000Z',
+        ];
+        remindAts.forEach((remindAt, i) => {
+          expect(reminderModel.create).toHaveBeenNthCalledWith(i + 1, {
+            orderId: id,
+            type: 'CONFIRMATION',
+            status: 'PENDING',
+            message: CONFIRMATION_MESSAGE,
+            remindAt: new Date(remindAt),
+          });
+        });
+      });
+
+      it('uses the shortest frequency and skips past reminder dates', async () => {
+        entryIncluded.all.mockResolvedValue([
+          withService(3, 'MONTH'),
+          withService(20, 'DAY'),
+          { ...entryRows[1], serviceId: null, service: null },
+        ]);
+
+        await service.update(id, { status: OrderStatus.COMPLETED });
+        expect(unique.update).toHaveBeenNthCalledWith(2, {
+          nextServiceDate: new Date('2026-12-17T15:30:00.000Z'),
+        });
+        expect(reminderModel.create).toHaveBeenCalledTimes(2);
+      });
+
+      it('completes without frequency: nextServiceDate null, no reminders, warns', async () => {
+        const warn = vi
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => undefined);
+        entryIncluded.all.mockResolvedValue([withService(null, null)]);
+
+        await expect(
+          service.update(id, { status: OrderStatus.COMPLETED }),
+        ).resolves.toMatchObject({
+          status: OrderStatus.COMPLETED,
+          nextServiceDate: null,
+        });
+        expect(unique.update).toHaveBeenNthCalledWith(2, {
+          nextServiceDate: null,
+        });
+        expect(reminderModel.create).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('without service frequency'),
+        );
+        warn.mockRestore();
+      });
+
+      it('does nothing when the order was already COMPLETED', async () => {
+        unique.first.mockResolvedValue(completed);
+
+        await service.update(id, { status: OrderStatus.COMPLETED });
+        expect(entryFiltered.include).not.toHaveBeenCalled();
+        expect(unique.update).toHaveBeenCalledTimes(1);
+        expect(reminderModel.create).not.toHaveBeenCalled();
+      });
+
+      it('does nothing on a PATCH that keeps the order OPEN', async () => {
+        await service.update(id, { serviceDate });
+        expect(entryFiltered.include).not.toHaveBeenCalled();
+        expect(reminderModel.create).not.toHaveBeenCalled();
+      });
+
+      it('reads the frequency from the new entries when the PATCH replaces them', async () => {
+        serviceUnique.first.mockResolvedValue({ id: serviceB });
+        entryModel.create.mockResolvedValue(entryRows[1]);
+        entryIncluded.all.mockResolvedValue([withService(20, 'DAY')]);
+
+        await service.update(id, {
+          status: OrderStatus.COMPLETED,
+          entries: [{ serviceId: serviceB, quantity: 1 }],
+        });
+        expect(entryModel.create.mock.invocationCallOrder[0]).toBeLessThan(
+          entryIncluded.all.mock.invocationCallOrder[0] ?? 0,
+        );
+        expect(reminderModel.create).toHaveBeenCalledTimes(2);
+      });
+
+      it('rolls back when a reminder cannot be created', async () => {
+        entryIncluded.all.mockResolvedValue([withService(3, 'MONTH')]);
+        reminderModel.create.mockRejectedValueOnce(new Error('insert failed'));
+
+        await expect(
+          service.update(id, { status: OrderStatus.COMPLETED }),
+        ).rejects.toBeInstanceOf(InternalServerErrorException);
+        const callback = transaction.mock.results[0];
+        await expect(callback?.value).rejects.toThrow('insert failed');
+      });
     });
 
     it('throws NotFoundException when missing and writes nothing', async () => {

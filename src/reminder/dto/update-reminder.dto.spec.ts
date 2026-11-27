@@ -16,16 +16,21 @@ describe('UpdateReminderDto', () => {
     { remindAt: null },
     { message: null },
     { status: null },
+    { type: null },
+    { type: 'OTHER' },
     { status: 'SENT' },
     { lastError: 'x' },
   ])('rejects %j', async (body) => {
     await expect(validate(body)).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it.each([{}, { orderId: null }, { status: 'PENDING' }])(
-    'accepts %j',
-    async (body) => {
-      await expect(validate(body)).resolves.toEqual(body);
-    },
-  );
+  it.each([
+    {},
+    { orderId: null },
+    { status: 'PENDING' },
+    { type: 'CONFIRMATION' },
+    { type: 'REMINDER' },
+  ])('accepts %j', async (body) => {
+    await expect(validate(body)).resolves.toEqual(body);
+  });
 });

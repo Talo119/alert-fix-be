@@ -1,0 +1,252 @@
+[
+  {
+    "id": "column.public.OrderHeader.nextServiceDate",
+    "label": "Add column \"nextServiceDate\" to \"OrderHeader\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "nextServiceDate",
+        "table": "OrderHeader"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"nextServiceDate\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "OrderHeader",
+          "nextServiceDate"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"nextServiceDate\" on \"OrderHeader\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"nextServiceDate\"",
+        "sql": "ALTER TABLE \"public\".\"OrderHeader\" ADD COLUMN \"nextServiceDate\" timestamptz(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"nextServiceDate\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "OrderHeader",
+          "nextServiceDate"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"nextServiceDate\" on \"OrderHeader\""
+        }
+      },
+      {
+        "description": "verify column \"nextServiceDate\" has type \"timestamp(3) with time zone\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "OrderHeader",
+          "nextServiceDate",
+          "timestamp(3) with time zone"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.Reminder.type",
+    "label": "Add column \"type\" to \"Reminder\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "type",
+        "table": "Reminder"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"type\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Reminder",
+          "type"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"type\" on \"Reminder\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"type\"",
+        "sql": "ALTER TABLE \"public\".\"Reminder\" ADD COLUMN \"type\" text DEFAULT 'REMINDER' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"type\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Reminder",
+          "type"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"type\" on \"Reminder\""
+        }
+      },
+      {
+        "description": "verify column \"type\" has type \"text\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "Reminder",
+          "type",
+          "text"
+        ]
+      },
+      {
+        "description": "verify column \"type\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "Reminder",
+          "type",
+          "NO"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.Service.frequencyUnit",
+    "label": "Add column \"frequencyUnit\" to \"Service\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "frequencyUnit",
+        "table": "Service"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"frequencyUnit\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyUnit"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"frequencyUnit\" on \"Service\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"frequencyUnit\"",
+        "sql": "ALTER TABLE \"public\".\"Service\" ADD COLUMN \"frequencyUnit\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"frequencyUnit\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyUnit"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"frequencyUnit\" on \"Service\""
+        }
+      },
+      {
+        "description": "verify column \"frequencyUnit\" has type \"text\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyUnit",
+          "text"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.Service.frequencyValue",
+    "label": "Add column \"frequencyValue\" to \"Service\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "frequencyValue",
+        "table": "Service"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"frequencyValue\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyValue"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"frequencyValue\" on \"Service\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"frequencyValue\"",
+        "sql": "ALTER TABLE \"public\".\"Service\" ADD COLUMN \"frequencyValue\" int4"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"frequencyValue\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyValue"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"frequencyValue\" on \"Service\""
+        }
+      },
+      {
+        "description": "verify column \"frequencyValue\" has type \"integer\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "Service",
+          "frequencyValue",
+          "integer"
+        ]
+      }
+    ]
+  }
+]

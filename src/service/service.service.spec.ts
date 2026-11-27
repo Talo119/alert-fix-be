@@ -87,6 +87,28 @@ describe('ServiceService', () => {
       expect(serviceModel.create).toHaveBeenCalledWith(dto);
     });
 
+    it('creates a service with a frequency', async () => {
+      const dto = {
+        name: 'Limpieza de A/C',
+        frequencyValue: 3,
+        frequencyUnit: 'MONTH' as const,
+      };
+      serviceModel.create.mockResolvedValue({ ...record, ...dto });
+
+      await service.create(dto);
+      expect(serviceModel.create).toHaveBeenCalledWith(dto);
+    });
+
+    it.each([{ frequencyValue: 3 }, { frequencyUnit: 'DAY' as const }])(
+      'throws BadRequestException with only one frequency field: %j',
+      async (frequency) => {
+        await expect(
+          service.create({ name: 'X', ...frequency }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(serviceModel.create).not.toHaveBeenCalled();
+      },
+    );
+
     it('throws BadRequestException when the company does not exist', async () => {
       companyUnique.first.mockResolvedValue(null);
 
@@ -141,6 +163,72 @@ describe('ServiceService', () => {
         BadRequestException,
       );
       expect(unique.update).not.toHaveBeenCalled();
+    });
+
+    describe('frequency', () => {
+      const withFrequency = {
+        ...record,
+        frequencyValue: 3,
+        frequencyUnit: 'MONTH',
+      };
+
+      it('changes only the value when the record already has a unit', async () => {
+        unique.first.mockResolvedValue(withFrequency);
+        unique.update.mockResolvedValue({
+          ...withFrequency,
+          frequencyValue: 6,
+        });
+
+        await service.update(id, { frequencyValue: 6 });
+        expect(unique.update).toHaveBeenCalledWith({ frequencyValue: 6 });
+      });
+
+      it('throws BadRequestException when the update leaves it incomplete', async () => {
+        unique.first.mockResolvedValue(withFrequency);
+        // `@IsOptional()` lets `null` through, although the DTO type does not.
+        const body = { frequencyUnit: null } as unknown as {
+          frequencyUnit?: 'DAY';
+        };
+
+        await expect(service.update(id, body)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(unique.update).not.toHaveBeenCalled();
+      });
+
+      it('throws BadRequestException when setting only the value on a record without frequency', async () => {
+        unique.first.mockResolvedValue({
+          ...record,
+          frequencyValue: null,
+          frequencyUnit: null,
+        });
+
+        await expect(
+          service.update(id, { frequencyValue: 3 }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(unique.update).not.toHaveBeenCalled();
+      });
+
+      it('removes the frequency when both fields are null', async () => {
+        unique.first.mockResolvedValue(withFrequency);
+        unique.update.mockResolvedValue({
+          ...record,
+          frequencyValue: null,
+          frequencyUnit: null,
+        });
+        const body = {
+          frequencyValue: null,
+          frequencyUnit: null,
+        } as unknown as {
+          frequencyValue?: number;
+        };
+
+        await service.update(id, body);
+        expect(unique.update).toHaveBeenCalledWith({
+          frequencyValue: null,
+          frequencyUnit: null,
+        });
+      });
     });
 
     it('throws NotFoundException when missing', async () => {

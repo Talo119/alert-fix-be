@@ -16,6 +16,7 @@ export class ServiceService {
 
   async create(createServiceDto: CreateServiceDto) {
     try {
+      this.assertFrequency(createServiceDto);
       if (createServiceDto.companyId) {
         await this.assertCompanyExists(createServiceDto.companyId);
       }
@@ -29,7 +30,10 @@ export class ServiceService {
 
   async findAll(companyId: string) {
     try {
-      return await db.orm.public.Service.where({ active: true, companyId }).all();
+      return await db.orm.public.Service.where({
+        active: true,
+        companyId,
+      }).all();
     } catch (error) {
       this.handleError('Failed to fetch services', error);
     }
@@ -47,7 +51,13 @@ export class ServiceService {
 
   async update(id: string, updateServiceDto: UpdateServiceDto) {
     try {
-      await this.findOne(id);
+      const existing = await this.findOne(id);
+      // Lo que el DTO no trae (`undefined`) se queda como está guardado.
+      const {
+        frequencyValue = existing.frequencyValue,
+        frequencyUnit = existing.frequencyUnit,
+      } = updateServiceDto;
+      this.assertFrequency({ frequencyValue, frequencyUnit });
       if (updateServiceDto.companyId) {
         await this.assertCompanyExists(updateServiceDto.companyId);
       }
@@ -69,6 +79,21 @@ export class ServiceService {
       return service;
     } catch (error) {
       this.handleError(`Failed to remove service ${id}`, error);
+    }
+  }
+
+  /** `frequencyValue` y `frequencyUnit` van los dos o ninguno (spec 12). */
+  private assertFrequency({
+    frequencyValue,
+    frequencyUnit,
+  }: {
+    frequencyValue?: number | null;
+    frequencyUnit?: string | null;
+  }) {
+    if ((frequencyValue == null) !== (frequencyUnit == null)) {
+      throw new BadRequestException(
+        'frequencyValue and frequencyUnit must be set together',
+      );
     }
   }
 
